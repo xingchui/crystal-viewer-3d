@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>晶体结构3D可视化 - Crystal Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-color: #4a90e2;
+      --bg-dark: #1a1a2e;
+      --bg-panel: #16213e;
+      --bg-card: #0f3460;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --border-color: #2a3f5f;
+      --accent-color: #e94560;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 
+                   'Microsoft YaHei', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* 左侧控制面板 */
+    .sidebar {
+      width: 320px;
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* 晶胞选择 */
+    .cell-selector {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 16px;
+      background-color: var(--primary-color);
+      border-radius: 2px;
+    }
+
+    .cell-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cell-btn {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-primary);
+      text-align: left;
+    }
+
+    .cell-btn:hover {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .cell-btn.active {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .cell-btn .icon {
+      width: 32px;
+      height: 32px;
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      font-size: 18px;
+    }
+
+    .cell-btn .info {
+      flex: 1;
+    }
+
+    .cell-btn .name {
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .cell-btn .formula {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* 控制面板 */
+    .controls {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .control-group {
+      margin-bottom: 16px;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary-color);
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider-group input[type="range"] {
+      flex: 1;
+      height: 4px;
+      background-color: var(--bg-card);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .slider-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background-color: var(--primary-color);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .slider-value {
+      min-width: 40px;
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* 超胞控制 */
+    .supercell-control {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .supercell-control input {
+      width: 50px;
+      padding: 6px 8px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .supercell-control span {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    /* 操作按钮 */
+    .actions {
+      padding: 20px;
+      margin-top: auto;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #3a7bc8;
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border-color);
+    }
+
+    .btn-accent {
+      background-color: var(--accent-color);
+      color: white;
+    }
+
+    .btn-accent:hover {
+      background-color: #d63852;
+    }
+
+    /* 右侧画布区域 */
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background-color: var(--bg-dark);
+    }
+
+    #canvas-wrapper {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 晶胞信息面板 */
+    .info-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 280px;
+      background-color: rgba(22, 33, 62, 0.95);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .info-panel h3 {
+      font-size: 16px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .info-item .label {
+      color: var(--text-secondary);
+    }
+
+    .info-item .value {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .info-description {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    /* 加载遮罩 */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--bg-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 导出进度 */
+    .export-progress {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(22, 33, 62, 0.95);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px 24px;
+      display: none;
+    }
+
+    .export-progress.active {
+      display: block;
+    }
+
+    .progress-bar {
+      width: 200px;
+      height: 4px;
+      background-color: var(--bg-card);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: var(--primary-color);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 左侧控制面板 -->
+    <aside class="sidebar">
+      <div class="header">
+        <h1>🔬 晶体结构可视化</h1>
+        <p>Crystal Structure 3D Viewer</p>
+      </div>
+
+      <!-- 晶胞选择 -->
+      <div class="cell-selector">
+        <h2 class="section-title">选择晶胞</h2>
+        <div class="cell-buttons" id="cell-buttons">
+          <!-- 动态生成 -->
+        </div>
+      </div>
+
+      <!-- 显示控制 -->
+      <div class="controls">
+        <h2 class="section-title">显示控制</h2>
+        
+        <div class="control-group">
+          <label class="control-label">显示选项</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" id="show-atoms" checked>
+              <span>原子</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="show-bonds" checked>
+              <span>化学键</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="show-lattice" checked>
+              <span>晶胞框架</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">原子大小</label>
+          <div class="slider-group">
+            <input type="range" id="atom-scale" min="0.5" max="2" step="0.1" value="1">
+            <span class="slider-value" id="atom-scale-value">1.0</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">键粗细</label>
+          <div class="slider-group">
+            <input type="range" id="bond-scale" min="0.5" max="2" step="0.1" value="1">
+            <span class="slider-value" id="bond-scale-value">1.0</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">超胞扩展 (Nx × Ny × Nz)</label>
+          <div class="supercell-control">
+            <input type="number" id="supercell-x" min="1" max="5" value="1">
+            <span>×</span>
+            <input type="number" id="supercell-y" min="1" max="5" value="1">
+            <span>×</span>
+            <input type="number" id="supercell-z" min="1" max="5" value="1">
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">投影模式</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item">
+              <input type="checkbox" id="orthographic">
+              <span>正交投影</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">截面显示</label>
+          <div class="supercell-control">
+            <select id="slice-plane" style="flex: 1; padding: 6px 8px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 13px;">
+              <option value="none">无截面</option>
+              <option value="yz">YZ截面 (x=0)</option>
+              <option value="xz">XZ截面 (y=0)</option>
+              <option value="xy">XY截面 (z=0)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="actions">
+        <button class="btn btn-secondary" id="reset-view">⟲ 重置视角</button>
+        <button class="btn btn-primary" id="screenshot">📷 保存截图</button>
+        <button class="btn btn-accent" id="export-gif">🎬 导出旋转GIF</button>
+      </div>
+    </aside>
+
+    <!-- 右侧画布 -->
+    <main class="canvas-container">
+      <div id="canvas-wrapper"></div>
+      
+      <!-- 晶胞信息面板 -->
+      <div class="info-panel" id="info-panel" style="display: none;">
+        <h3 id="info-title">晶胞信息</h3>
+        <div class="info-item">
+          <span class="label">晶胞类型</span>
+          <span class="value" id="info-category">-</span>
+        </div>
+        <div class="info-item">
+          <span class="label">晶格常数</span>
+          <span class="value" id="info-lattice">-</span>
+        </div>
+        <div class="info-item">
+          <span class="label">原子数量</span>
+          <span class="value" id="info-atoms">-</span>
+        </div>
+        <div class="info-item">
+          <span class="label">化学键数</span>
+          <span class="value" id="info-bonds">-</span>
+        </div>
+        <div class="info-item">
+          <span class="label">配位数</span>
+          <span class="value" id="info-coordination">-</span>
+        </div>
+        <div class="info-description" id="info-description">
+          选择一个晶胞查看详细信息
+        </div>
+      </div>
+
+      <!-- 导出进度 -->
+      <div class="export-progress" id="export-progress">
+        <div>正在生成GIF...</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

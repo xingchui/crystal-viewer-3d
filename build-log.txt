@@ -1,0 +1,33 @@
+yarn run v1.22.22
+$ npm run build && electron-builder --win
+(node:9128) [DEP0174] DeprecationWarning: Calling promisify on a function that returns a Promise is likely a mistake.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+> crystal-viewer-electron@1.0.0 build
+> tsc && vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 20 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                [39m[1m[2m 12.87 kB[22m[1m[22m[2m │ gzip:   3.03 kB[22m
+[2mdist/[22m[36massets/index-B8PYxeH7.js  [39m[1m[2m 49.82 kB[22m[1m[22m[2m │ gzip:  14.21 kB[22m[2m │ map:   173.85 kB[22m
+[2mdist/[22m[36massets/three-BBZb8Ett.js  [39m[1m[33m504.39 kB[39m[22m[2m │ gzip: 128.39 kB[22m[2m │ map: 2,748.07 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 1.85s[39m
+  • electron-builder  version=26.7.0 os=10.0.19045
+  • loaded configuration  file=package.json ("build" field)
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=win32 arch=x64 electron=40.2.1 appOutDir=release\win-unpacked
+  • searching for node modules  pm=yarn searchDir=E:\op\op2\crystal-viewer
+(node:14904) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  • updating asar integrity executable resource  executablePath=release\win-unpacked\Crystal Viewer 3D.exe
+  • building        target=zip arch=x64 file=release\Crystal Viewer 3D-1.0.0-win.zip
+  • building        target=portable file=release\Crystal-Viewer-Portable-1.0.0.exe archs=x64
+  • output file is locked for writing (maybe by virus scanner) => waiting for unlock...  

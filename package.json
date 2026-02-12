@@ -1,0 +1,80 @@
+{
+  "name": "crystal-viewer",
+  "version": "1.0.0",
+  "description": "3D晶体结构可视化工具",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri-dev": "tauri dev",
+    "tauri-build": "tauri build",
+    "electron": "electron .",
+    "electron-dev": "cross-env NODE_ENV=development electron .",
+    "electron-build": "npm run build && electron-builder",
+    "electron-build-win": "npm run build && electron-builder --win",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "build": {
+    "appId": "com.crystalviewer.app",
+    "productName": "Crystal Viewer 3D",
+    "copyright": "Copyright © 2026 Crystal Viewer Team",
+    "directories": {
+      "output": "release",
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "asar": true,
+    "compression": "normal",
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "Crystal-Viewer-Portable-${version}.${ext}"
+    },
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    }
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.0",
+    "cross-env": "^7.0.3",
+    "electron": "^40.2.1",
+    "electron-builder": "^26.7.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@types/three": "^0.182.0",
+    "gif.js.optimized": "^1.0.1",
+    "three": "^0.182.0"
+  },
+  "author": "Crystal Viewer Team",
+  "license": "MIT"
+}

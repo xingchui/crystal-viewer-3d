@@ -1,0 +1,46 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Crystal Viewer 3D",
+  "version": "1.0.0",
+  "identifier": "com.crystalviewer.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Crystal Viewer 3D - 晶体结构可视化",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1200,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "exe"],
+    "publisher": "Crystal Viewer Team",
+    "copyright": "Copyright (c) 2026",
+    "category": "Science",
+    "shortDescription": "3D晶体结构可视化工具",
+    "longDescription": "基于Three.js的高性能3D晶体结构可视化应用，支持金刚石、干冰、碳化硅等多种晶胞模型",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
