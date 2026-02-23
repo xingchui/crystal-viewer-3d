@@ -67,6 +67,7 @@ export const ELEMENT_FORMULAS: Record<string, string> = {
   diamond: 'C',
   dryice: 'CO₂',
   sic: 'SiC',
+  c60: 'C₆₀',
 } as const;
 
 /** 元素图标映射 */
@@ -74,6 +75,7 @@ export const ELEMENT_ICONS: Record<string, string> = {
   diamond: '💎',
   dryice: '❄️',
   sic: '🔷',
+  c60: '⚽',
 } as const;
 
 /** UI选择器常量 - 避免硬编码字符串 */
