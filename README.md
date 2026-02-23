@@ -1,197 +1,132 @@
-# Crystal Viewer 3D - 晶体结构可视化
+# 🔬 Crystal Viewer 3D - 晶体结构可视化
 
-一个基于 Three.js + TypeScript 的高性能3D晶体结构可视化应用，支持金刚石、干冰、碳化硅等多种晶胞模型的交互式展示。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-r182-black.svg)](https://threejs.org/)
+[![Electron](https://img.shields.io/badge/Electron-40.x-9fe2bf.svg)](https://www.electronjs.org/)
+
+> 🎯 一个基于 **Three.js + TypeScript + Electron** 的高性能3D晶体结构可视化应用，支持8种常见晶体结构的交互式展示与分析。
+
+![Crystal Viewer Screenshot](https://via.placeholder.com/800x450/1a1a2e/4a90e2?text=Crystal+Viewer+3D+Screenshot)
 
 ## ✨ 主要特性
 
-### 🎯 核心功能
-- **三种预设晶胞**：金刚石(C)、干冰(CO₂)、碳化硅(SiC)
-- **超胞扩展**：支持 1×1×1 到 5×5×5 的超胞展示
-- **金属质感渲染**：基于 MeshPhysicalMaterial 的高真实感原子渲染
-- **交互式控制**：旋转、缩放、平移查看晶胞结构
+### 🎨 支持的晶体结构（8种）
 
-### 🎨 显示选项
-- **原子显示**：可调整原子大小 (0.5x - 2x)
-- **化学键显示**：可调整键粗细 (0.5x - 2x)，双色键支持
-- **晶胞框架**：虚线边框 + 坐标轴显示
-- **投影模式**：透视投影 / 正交投影切换
+| 晶体 | 化学式 | 结构类型 | 配位数 | 类别 |
+|------|--------|----------|--------|------|
+| 💎 **金刚石** | C | 金刚石结构 | 4 | 共价晶体 |
+| 🔷 **碳化硅** | SiC | 闪锌矿 | 4 | 共价晶体 |
+| ❄️ **干冰** | CO₂ | 面心立方 | - | 分子晶体 |
+| 🧂 **氯化钠** | NaCl | 岩盐结构 | 6 | 离子晶体 |
+| ⚪ **氯化铯** | CsCl | 铯氯结构 | 8 | 离子晶体 |
+| 🟡 **硫化锌** | ZnS | 闪锌矿 | 4 | 离子晶体 |
+| 🔵 **氟化钙** | CaF₂ | 萤石结构 | 8/4 | 离子晶体 |
+| ⬛ **石墨** | C | 六方层状 | 3 | 混合晶体 |
+
+### 🎯 核心功能
+
+- ✅ **超胞扩展**：支持 1×1×1 到 5×5×5 的超胞展示
+- ✅ **投影模式**：透视投影 / 正交投影一键切换
+- ✅ **截面显示**：YZ/XZ/XY平面截面分析
+- ✅ **金属质感渲染**：基于 MeshPhysicalMaterial 的高真实感渲染
+- ✅ **自动键计算**：基于最近邻算法的智能化学键识别
+
+### 🎮 交互控制
+
+- 🖱️ **旋转/缩放/平移**：鼠标拖拽、滚轮缩放、右键平移
+- 📐 **显示选项**：原子、化学键、晶胞框架独立控制
+- 📏 **尺寸调节**：原子大小 (0.5x - 2x)、键粗细 (0.5x - 2x)
 
 ### 📤 导出功能
-- **截图**：一键保存当前视图为PNG
-- **旋转动画**：导出5秒旋转视频为WebM格式
 
-### 🔧 技术亮点
-- **InstancedMesh 渲染**：高性能渲染，支持1000+原子
-- **自动键计算**：基于元素类型和距离自动识别化学键
-- **分数坐标系统**：严格遵循晶体学标准
-- **预留扩展接口**：易于添加新晶胞类型（如NaCl、SiO₂）
+- 📷 **截图**：一键保存当前视图为 PNG
+- 🎬 **旋转动画**：导出 5 秒旋转视频 (WebM 格式)
 
 ## 🚀 快速开始
 
-### 方式1：使用启动脚本（推荐）
-```bash
-# Windows
-double-click start.bat
+### 方式1：下载桌面应用（推荐） ⭐
 
-# 然后在浏览器访问 http://localhost:5173
-```
+前往 [Releases 页面](https://github.com/xingchui/crystal-viewer-3d/releases) 下载最新版本：
 
-### 方式2：手动运行
+- **Windows**: `Crystal-Viewer-Portable-x.x.x.exe` (免安装)
+
+### 方式2：本地开发
+
 ```bash
+# 克隆仓库
+git clone https://github.com/xingchui/crystal-viewer-3d.git
+cd crystal-viewer-3d
+
 # 安装依赖
-npm install
+yarn install
 
 # 开发模式
-npm run dev
+yarn dev
 
 # 生产构建
-npm run build
+yarn build
+
+# 构建桌面应用
+yarn electron-build-win
 ```
 
 ## 📦 项目结构
 
 ```
-crystal-viewer/
-├── src/
-│   ├── data/                 # 数据层
-│   │   ├── types.ts         # TypeScript类型定义
-│   │   ├── elements.ts      # 元素周期表数据
-│   │   └── cells.ts         # 晶胞数据（金刚石、干冰、SiC）
-│   ├── core/                 # 核心层
-│   │   ├── CrystalViewer.ts # 主控制器
-│   │   ├── renderers/       # 渲染器
-│   │   │   ├── SceneManager.ts
-│   │   │   ├── AtomRenderer.ts      # InstancedMesh原子渲染
-│   │   │   ├── BondRenderer.ts      # 化学键渲染
-│   │   │   └── LatticeRenderer.ts   # 晶胞框架渲染
-│   │   └── cells/           # 晶胞逻辑
-│   │       ├── BaseCell.ts
-│   │       └── CellImplementations.ts
-│   ├── utils/                # 工具函数
-│   │   ├── coordinates.ts   # 坐标转换工具
-│   │   ├── bonds.ts         # 化学键计算
-│   │   └── gifExport.ts     # GIF导出工具
-│   └── main.ts              # 应用入口
-├── index.html
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
-```
-
-## 🎮 使用指南
-
-### 晶胞选择
-- 点击左侧晶胞按钮切换不同晶体结构
-- 默认显示金刚石结构
-
-### 显示控制
-- **显示选项**：勾选/取消勾选控制原子、化学键、晶胞框架的显示
-- **原子大小**：拖动滑块调整原子显示比例
-- **键粗细**：拖动滑块调整化学键显示粗细
-- **超胞扩展**：设置 N×N×N 的超胞尺寸（1-5）
-- **投影模式**：切换透视/正交投影
-
-### 导出功能
-- **重置视角**：恢复默认相机位置
-- **保存截图**：下载当前视图为PNG图片
-- **导出旋转GIF**：生成5秒旋转动画（WebM格式）
-
-## 🧪 晶胞数据
-
-### 金刚石 (Diamond)
-- **结构**：面心立方 + 体对角线1/4处原子
-- **晶格常数**：a = 3.567 Å
-- **原子数**：8个C原子
-- **配位数**：4（四面体配位）
-- **类别**：共价晶体
-
-### 干冰 (Dry Ice)
-- **结构**：面心立方，CO₂分子位于格点
-- **晶格常数**：a = 5.64 Å
-- **分子数**：4个CO₂分子
-- **类别**：分子晶体
-
-### 碳化硅 (SiC)
-- **结构**：闪锌矿结构（3C-SiC）
-- **晶格常数**：a = 4.360 Å
-- **原子数**：4个Si + 4个C
-- **配位数**：4（四面体配位）
-- **类别**：共价晶体
-
-## 🔮 扩展指南
-
-### 添加新晶胞
-
-1. 在 `src/data/cells.ts` 中添加晶胞数据：
-
-```typescript
-export const naclCell: UnitCell = {
-  id: 'nacl',
-  name: 'Sodium Chloride',
-  nameZh: '氯化钠',
-  latticeType: 'rocksalt',
-  a: 5.64, b: 5.64, c: 5.64,
-  alpha: 90, beta: 90, gamma: 90,
-  atoms: [
-    // 添加原子坐标
-  ],
-  properties: {
-    description: '岩盐结构',
-    category: 'ionic'
-  }
-};
-```
-
-2. 在 `src/core/cells/CellImplementations.ts` 中创建晶胞类：
-
-```typescript
-export class NaClCell extends BaseCell {
-  readonly id = 'nacl';
-  readonly name = 'Sodium Chloride';
-  readonly nameZh = '氯化钠';
-  readonly data = naclCell;
-}
-```
-
-3. 注册到 CellRegistry：
-
-```typescript
-CellRegistry.register(new NaClCell());
+crystal-viewer-3d/
+├── 📁 src/
+│   ├── 📁 core/              # 核心层
+│   │   ├── CrystalViewer.ts  # 主控制器
+│   │   ├── 📁 renderers/     # 3D渲染器
+│   │   └── 📁 cells/         # 晶胞逻辑
+│   ├── 📁 data/              # 数据层
+│   ├── 📁 utils/             # 工具函数
+│   └── 📁 ui/                # UI层
+├── 📁 electron/              # Electron主进程
+├── 📁 .github/               # GitHub配置
+├── 📄 package.json
+└── 📄 README.md
 ```
 
 ## 🛠️ 技术栈
 
-- **前端框架**：Vanilla TypeScript (ES Modules)
-- **3D渲染**：Three.js v0.182
-- **构建工具**：Vite v7.2
-- **UI样式**：原生CSS变量 + Flexbox布局
+- **语言**: TypeScript 5.0 (Strict Mode)
+- **3D引擎**: Three.js r182
+- **构建工具**: Vite 7.x
+- **测试框架**: Vitest
+- **桌面打包**: Electron 40.x
+
+## 🧪 核心算法
+
+### 策略模式 - 化学键计算
+
+```typescript
+interface BondCalculationStrategy {
+  calculate(atoms: Atom[], params: CellParams): Bond[];
+}
+
+// 具体策略实现
+class DiamondBondStrategy implements BondCalculationStrategy { ... }
+class ZincBlendeBondStrategy implements BondCalculationStrategy { ... }
+```
 
 ## 📝 性能指标
 
-- **渲染性能**：1000+原子 @ 60FPS
-- **首屏加载**：< 3秒（本地）
-- **包体积**：~550KB (gzipped)
-- **内存占用**：< 100MB
-
-## 🔜 未来计划
-
-- [ ] 添加更多晶胞：NaCl、CsCl、石墨、SiO₂等
-- [ ] 支持自定义晶胞导入（CIF/XYZ格式）
-- [ ] 晶体平面展示（Miller指数）
-- [ ] 晶向标注
-- [ ] 真实GIF导出（使用gif.js）
-- [ ] 桌面端打包（Tauri/Electron）
+- ⚡ **渲染性能**: 1000+ 原子 @ 60FPS
+- 📦 **包体积**: ~62KB (gzipped, 前端代码)
+- 🖥️ **桌面应用**: ~89MB (Electron打包)
 
 ## 📄 许可证
 
-MIT License
+本项目采用 [MIT License](LICENSE) 开源许可证
 
-## 🙏 致谢
-
-- Three.js - 强大的3D图形库
-- OpenCode - 开发环境支持
+Copyright (c) 2026 xingchui
 
 ---
 
-**开发时间**：2026年2月
-**版本**：v1.0.0
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/xingchui">xingchui</a>
+  <br>
+  ⭐ Star this repo if you find it helpful!
+</p>

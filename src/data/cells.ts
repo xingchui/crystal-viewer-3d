@@ -11,7 +11,7 @@
  * 包含完整的8个顶点、12条棱、6个面，以满足教学演示需求
  */
 
-import type { UnitCell } from './types';
+import type { UnitCell, Bond, Atom } from './types';
 
 /**
  * 金刚石 (Diamond) - 面心立方结构
@@ -493,6 +493,186 @@ export const graphiteCell: UnitCell = {
   }
 };
 
+/**
+ * 碳60 (C60) - 富勒烯/巴克球分子
+ * 
+ * 结构描述：
+ * - 分子类型：截角二十面体 (Truncated Icosahedron)
+ * - 60个碳原子，形成12个五边形和20个六边形
+ * - 每个碳原子sp²杂化，与3个相邻碳原子成键
+ * - C-C键长：约1.40 Å（六边形）和 1.45 Å（五边形）
+ * - 分子直径：约7.1 Å
+ * 
+ * 坐标基于黄金分割比例 φ = (1+√5)/2
+ * 所有原子位于半径约3.55 Å的球面上
+ */
+function generateC60Atoms(): Atom[] {
+  const phi = (1 + Math.sqrt(5)) / 2;  // 黄金分割比例 ≈ 1.618
+  const atoms: Atom[] = [];
+  
+  // 截角二十面体顶点坐标 (归一化)
+  // 顶点类型1: (0, ±1, ±3φ)
+  // 顶点类型2: (±1, ±(2+φ), ±2φ)
+  // 顶点类型3: (±φ, ±2, ±(2φ+1))
+  // 顶点类型4: (±φ², ±1, ±(2φ+1))
+  // 顶点类型5: (±2φ, ±1, ±(φ+2))
+  
+  const coords: [number, number, number][] = [];
+  
+  // 类型1: (0, ±1, ±3φ)
+  const t1 = [0, 1, 3 * phi];
+  coords.push(
+    [t1[0], t1[1], t1[2]], [t1[0], -t1[1], t1[2]],
+    [t1[0], t1[1], -t1[2]], [t1[0], -t1[1], -t1[2]]
+  );
+  coords.push(
+    [t1[1], t1[2], t1[0]], [-t1[1], t1[2], t1[0]],
+    [t1[1], -t1[2], t1[0]], [-t1[1], -t1[2], t1[0]]
+  );
+  coords.push(
+    [t1[2], t1[0], t1[1]], [t1[2], t1[0], -t1[1]],
+    [-t1[2], t1[0], t1[1]], [-t1[2], t1[0], -t1[1]]
+  );
+  
+  // 类型2: (±1, ±(2+φ), ±2φ)
+  const t2 = [1, 2 + phi, 2 * phi];
+  for (const s1 of [1, -1]) {
+    for (const s2 of [1, -1]) {
+      for (const s3 of [1, -1]) {
+        coords.push([s1 * t2[0], s2 * t2[1], s3 * t2[2]]);
+      }
+    }
+  }
+  for (const s1 of [1, -1]) {
+    for (const s2 of [1, -1]) {
+      for (const s3 of [1, -1]) {
+        coords.push([s1 * t2[1], s2 * t2[2], s3 * t2[0]]);
+      }
+    }
+  }
+  for (const s1 of [1, -1]) {
+    for (const s2 of [1, -1]) {
+      for (const s3 of [1, -1]) {
+        coords.push([s1 * t2[2], s2 * t2[0], s3 * t2[1]]);
+      }
+    }
+  }
+  
+  // 类型3: (±φ, ±2, ±(2φ+1))
+  const t3 = [phi, 2, 2 * phi + 1];
+  for (const s1 of [1, -1]) {
+    for (const s2 of [1, -1]) {
+      for (const s3 of [1, -1]) {
+        coords.push([s1 * t3[0], s2 * t3[1], s3 * t3[2]]);
+      }
+    }
+  }
+  for (const s1 of [1, -1]) {
+    for (const s2 of [1, -1]) {
+      for (const s3 of [1, -1]) {
+        coords.push([s1 * t3[1], s2 * t3[2], s3 * t3[0]]);
+      }
+    }
+  }
+  for (const s1 of [1, -1]) {
+    for (const s2 of [1, -1]) {
+      for (const s3 of [1, -1]) {
+        coords.push([s1 * t3[2], s2 * t3[0], s3 * t3[1]]);
+      }
+    }
+  }
+  
+  // 去重（某些坐标可能重复）
+  const uniqueCoords: [number, number, number][] = [];
+  const seen = new Set<string>();
+  
+  for (const c of coords) {
+    const key = `${c[0].toFixed(6)},${c[1].toFixed(6)},${c[2].toFixed(6)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueCoords.push(c);
+    }
+  }
+  
+  // 归一化到单位球面，然后缩放到分子半径
+  // C60分子半径约为3.55 Å
+  const radius = 3.55;
+  
+  for (const c of uniqueCoords) {
+    const len = Math.sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]);
+    const nx = c[0] / len;
+    const ny = c[1] / len;
+    const nz = c[2] / len;
+    
+    // 将坐标映射到 [0,1] 范围，中心在 (0.5, 0.5, 0.5)
+    // 以便与现有渲染系统兼容
+    atoms.push({
+      element: 'C',
+      x: (nx * radius + 4) / 8,  // 映射到约 [0, 1]
+      y: (ny * radius + 4) / 8,
+      z: (nz * radius + 4) / 8
+    });
+  }
+  
+  return atoms;
+}
+
+/**
+ * 生成C60的化学键
+ * 基于最近邻算法，键长阈值约1.45 Å
+ */
+function generateC60Bonds(atomCount: number, atoms: Array<{ x: number; y: number; z: number }>): Bond[] {
+  const bonds: Bond[] = [];
+  const radius = 3.55;
+  const threshold = 1.5 * 1.5;  // 键长平方阈值 (Å²)
+  
+  // 将原子坐标转换回实际坐标
+  const realCoords = atoms.map(a => ({
+    x: (a.x * 8 - 4),
+    y: (a.y * 8 - 4),
+    z: (a.z * 8 - 4)
+  }));
+  
+  for (let i = 0; i < atomCount; i++) {
+    for (let j = i + 1; j < atomCount; j++) {
+      const dx = realCoords[i].x - realCoords[j].x;
+      const dy = realCoords[i].y - realCoords[j].y;
+      const dz = realCoords[i].z - realCoords[j].z;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      
+      if (distSq < threshold) {
+        bonds.push({ atom1: i, atom2: j, type: 'single' });
+      }
+    }
+  }
+  
+  return bonds;
+}
+
+// 生成C60原子和键
+const c60Atoms = generateC60Atoms();
+const c60Bonds = generateC60Bonds(c60Atoms.length, c60Atoms);
+
+export const c60Cell: UnitCell = {
+  id: 'c60',
+  name: 'C60 Fullerene',
+  nameZh: '碳60富勒烯',
+  latticeType: 'hexagonal',  // 使用hexagonal作为分子类型标识（实际上不适用）
+  a: 8.0,   // 包围盒大小
+  b: 8.0,
+  c: 8.0,
+  alpha: 90,
+  beta: 90,
+  gamma: 90,
+  atoms: c60Atoms,
+  bonds: c60Bonds,
+  properties: {
+    description: '富勒烯（巴克球），截角二十面体结构。60个碳原子形成12个五边形和20个六边形。每个碳原子与3个相邻碳原子成键，sp²杂化。1996年诺贝尔化学奖。',
+    category: 'molecular',
+    coordination: '3 (每个C与3个C成键)'
+  }
+};
+
 // 导出所有晶胞
 export const UNIT_CELLS: Record<string, UnitCell> = {
   diamond: diamondCell,
@@ -502,7 +682,8 @@ export const UNIT_CELLS: Record<string, UnitCell> = {
   cscl: csclCell,
   zns: znsCell,
   caf2: caf2Cell,
-  graphite: graphiteCell
+  graphite: graphiteCell,
+  c60: c60Cell
 };
 
 // 获取晶胞数据
