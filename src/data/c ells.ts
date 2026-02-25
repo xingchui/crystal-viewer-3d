@@ -12,7 +12,6 @@
  */
 
 import type { UnitCell, Bond, Atom } from './types';
-import { c70Cell } from './c70'; // 新增导入c70Cell
 
 /**
  * 金刚石 (Diamond) - 面心立方结构
@@ -674,9 +673,6 @@ export const c60Cell: UnitCell = {
   }
 };
 
-// 在 cells.ts 文件末尾、UNIT_CELLS 定义前，新增这行导出
-export { c70Cell } from './c70'; // 直接重导出 c70.ts 中的 c70Cell
-
 // 导出所有晶胞
 export const UNIT_CELLS: Record<string, UnitCell> = {
   diamond: diamondCell,
@@ -687,8 +683,7 @@ export const UNIT_CELLS: Record<string, UnitCell> = {
   zns: znsCell,
   caf2: caf2Cell,
   graphite: graphiteCell,
-  c60: c60Cell,
-  c70: c70Cell // 新增c70Cell暴露
+  c60: c60Cell
 };
 
 // 获取晶胞数据

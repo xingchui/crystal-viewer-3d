@@ -68,7 +68,6 @@ export const ELEMENT_FORMULAS: Record<string, string> = {
   dryice: 'CO₂',
   sic: 'SiC',
   c60: 'C₆₀',
-  c70: 'C₇₀', // 新增C70化学式（下标格式保持和C60一致）
 } as const;
 
 /** 元素图标映射 */
@@ -77,7 +76,6 @@ export const ELEMENT_ICONS: Record<string, string> = {
   dryice: '❄️',
   sic: '🔷',
   c60: '⚽',
-  c70: '⚫', // 新增C70图标
 } as const;
 
 /** UI选择器常量 - 避免硬编码字符串 */

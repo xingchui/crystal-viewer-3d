@@ -4,7 +4,7 @@
  */
 
 import { BaseCell } from './BaseCell';
-import { diamondCell, dryIceCell, sicCell, naclCell, csclCell, znsCell, caf2Cell, graphiteCell, c60Cell, c70Cell } from '../../data/cells';
+import { diamondCell, dryIceCell, sicCell, naclCell, csclCell, znsCell, caf2Cell, graphiteCell, c60Cell } from '../../data/cells';
 
 // 金刚石晶胞
 export class DiamondCell extends BaseCell {
@@ -78,14 +78,6 @@ export class C60Cell extends BaseCell {
   readonly data = c60Cell;
 }
 
-// 碳70富勒烯
-export class C70Cell extends BaseCell {
-  readonly id = 'c70';
-  readonly name = 'C70 Fullerene';
-  readonly nameZh = '碳70富勒烯';
-  readonly data = c70Cell;
-}
-
 // 晶胞注册表
 export class CellRegistry {
   private static cells: Map<string, BaseCell> = new Map();
@@ -152,7 +144,6 @@ export class CellRegistry {
     this.register(new CaF2Cell());
     this.register(new GraphiteCell());
     this.register(new C60Cell());
-    this.register(new C70Cell()); // 注册C70晶胞
   }
 }
 
