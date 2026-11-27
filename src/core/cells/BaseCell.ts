@@ -71,24 +71,24 @@ export abstract class BaseCell {
    * @param nz - z方向晶胞数
    */
   generateSuperCellBonds(nx: number, ny: number, nz: number): Bond[] {
-    const superCellAtoms = this.generateSuperCell(nx, ny, nz);
     const bonds: Bond[] = [];
     const baseBonds = this.getBonds();
     const atomCount = this.data.atoms.length;
 
-    // 为每个晶胞复制键
+    // 常规晶胞显式包含顶点、棱、面上的原子，相邻晶胞会在同一空间位置生成重复原子。
+    // 因此把原胞键按晶胞整体平移即可覆盖跨边界的化学键：边界处多个重合的原子
+    // 分别连接到各自晶胞内的邻居，视觉上形成完整的配位环境。
     for (let i = 0; i < nx; i++) {
       for (let j = 0; j < ny; j++) {
         for (let k = 0; k < nz; k++) {
-          const cellIndex = (i * ny * nz + j * nz + k) * atomCount;
-          
-          baseBonds.forEach(bond => {
+          const cellOffset = (i * ny * nz + j * nz + k) * atomCount;
+          for (const bond of baseBonds) {
             bonds.push({
-              atom1: cellIndex + bond.atom1,
-              atom2: cellIndex + bond.atom2,
-              type: bond.type
+              atom1: cellOffset + bond.atom1,
+              atom2: cellOffset + bond.atom2,
+              type: bond.type,
             });
-          });
+          }
         }
       }
     }
@@ -113,6 +113,7 @@ export abstract class BaseCell {
       case 'molecular': return '分子晶体';
       case 'ionic': return '离子晶体';
       case 'metallic': return '金属晶体';
+      case 'mixed': return '混合晶体';
       default: return '未知';
     }
   }

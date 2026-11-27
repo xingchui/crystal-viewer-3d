@@ -52,9 +52,16 @@ function createWindow() {
     mainWindow.focus();
   });
 
-  // 处理新窗口打开（在外部浏览器中打开链接）
+  // 处理新窗口打开（仅允许 http/https 在外部浏览器中打开）
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const protocol = new URL(url).protocol;
+      if (protocol === 'http:' || protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch {
+      // 忽略无法解析的 URL
+    }
     return { action: 'deny' };
   });
 

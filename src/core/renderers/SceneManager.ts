@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RENDER_CONFIG } from '../../data/constants';
 
 export class SceneManager {
   container: HTMLElement;
@@ -15,6 +16,9 @@ export class SceneManager {
   lights: THREE.Light[] = [];
   
   private currentBackgroundColor: string = '#1a1a2e';
+  private animationFrameId: number | null = null;
+  private readonly resizeHandler = () => this.onResize();
+  private orthoHalfHeight = 5;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -25,13 +29,14 @@ export class SceneManager {
     
     // 初始化相机
     const aspect = container.clientWidth / container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+    const { fov, near, far } = RENDER_CONFIG.camera;
+    this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     this.camera.position.set(10, 10, 10);
     
     // 初始化渲染器
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      preserveDrawingBuffer: true, // 用于截图/GIF导出
+      preserveDrawingBuffer: true, // 用于截图/视频导出
       alpha: true
     });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
@@ -51,8 +56,8 @@ export class SceneManager {
     // 设置灯光
     this.setupLights();
     
-    // 监听窗口大小变化
-    window.addEventListener('resize', this.onResize.bind(this));
+    // 监听窗口大小变化（保存同一个函数引用，dispose 时才能正确移除）
+    window.addEventListener('resize', this.resizeHandler);
   }
 
   /**
@@ -104,63 +109,120 @@ export class SceneManager {
     const aspect = this.container.clientWidth / this.container.clientHeight;
     const currentPosition = this.camera.position.clone();
     const currentTarget = this.controls.target.clone();
+    const currentUp = this.camera.up.clone();
+    const viewDirection = currentPosition.clone().sub(currentTarget);
+    if (viewDirection.lengthSq() === 0) viewDirection.set(1, 1, 1);
+    viewDirection.normalize();
 
     if (isOrthographic) {
       // 切换到正交投影
+      let center = currentTarget.clone();
+      let halfHeight = 5;
+      let distance = 30;
+
       if (bounds) {
-        // 使用原子边界精确设置视锥体
-        // 计算中心点和范围
-        const centerX = (bounds.maxX + bounds.minX) / 2;
-        const centerY = (bounds.maxY + bounds.minY) / 2;
-        const xRange = (bounds.maxX - bounds.minX) / 2;
-        const yRange = (bounds.maxY - bounds.minY) / 2;
-        
-        // 使用较大的范围作为基准，确保x和y方向的单位长度相同（防止球体变椭圆）
-        const maxRange = Math.max(xRange, yRange);
-        
-        // 根据屏幕宽高比调整，保持1:1的宽高比
-        let left, right, top, bottom;
-        if (aspect > 1) {
-          // 宽屏：x方向范围更大
-          left = centerX - maxRange * aspect;
-          right = centerX + maxRange * aspect;
-          top = centerY + maxRange;
-          bottom = centerY - maxRange;
-        } else {
-          // 窄屏：y方向范围更大
-          left = centerX - maxRange;
-          right = centerX + maxRange;
-          top = centerY + maxRange / aspect;
-          bottom = centerY - maxRange / aspect;
-        }
-        
-        this.camera = new THREE.OrthographicCamera(
-          left, right,
-          top, bottom,
-          -1000, 1000
+        // 用包围球半径计算视锥体，保证旋转到任意视角都不会裁掉原子
+        center = new THREE.Vector3(
+          (bounds.minX + bounds.maxX) / 2,
+          (bounds.minY + bounds.maxY) / 2,
+          (bounds.minZ + bounds.maxZ) / 2
         );
-      } else {
-        // 默认视锥体 - 保持1:1的宽高比
-        const frustumSize = 10;
-        this.camera = new THREE.OrthographicCamera(
-          frustumSize * aspect / -2,
-          frustumSize * aspect / 2,
-          frustumSize / 2,
-          frustumSize / -2,
-          0.1,
-          1000
+        const radius = Math.sqrt(
+          Math.pow((bounds.maxX - bounds.minX) / 2, 2) +
+          Math.pow((bounds.maxY - bounds.minY) / 2, 2) +
+          Math.pow((bounds.maxZ - bounds.minZ) / 2, 2)
         );
+        halfHeight = Math.max(radius * 1.1, 1);
+        distance = Math.max(radius * 3, 10);
       }
+
+      this.orthoHalfHeight = halfHeight;
+      const halfWidth = halfHeight * aspect;
+      this.camera = new THREE.OrthographicCamera(
+        -halfWidth, halfWidth,
+        halfHeight, -halfHeight,
+        0.1,
+        distance * 4 + 100
+      );
+
+      this.camera.position.copy(center).addScaledVector(viewDirection, distance);
+      this.camera.up.copy(currentUp);
+      this.camera.lookAt(center);
+      this.controls.target.copy(center);
     } else {
       // 切换到透视投影
-      this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+      const { fov, near, far } = RENDER_CONFIG.camera;
+      this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      this.camera.position.copy(currentPosition);
+      this.camera.up.copy(currentUp);
+      this.camera.lookAt(currentTarget);
+      this.controls.target.copy(currentTarget);
     }
-
-    this.camera.position.copy(currentPosition);
-    this.camera.lookAt(currentTarget);
 
     // 更新控制器
     this.controls.object = this.camera;
+    this.controls.update();
+  }
+
+  /**
+   * 将相机放到指定方向上，并让目标包围球完整落入视野。
+   *
+   * @param direction - 从目标指向相机的方向（会自动归一化）
+   * @param up - 屏幕向上对应的参考向量
+   * @param center - 观察目标（通常为结构包围盒中心）
+   * @param radius - 结构包围球半径
+   */
+  setView(
+    direction: THREE.Vector3,
+    up: THREE.Vector3,
+    center: THREE.Vector3,
+    radius: number
+  ): void {
+    const viewDirection = direction.clone();
+    if (viewDirection.lengthSq() === 0) viewDirection.set(1, 1, 1);
+    viewDirection.normalize();
+
+    // 去掉与视线平行的分量；若仍退化，则换一个参考轴
+    const upVector = up.clone();
+    upVector.addScaledVector(viewDirection, -upVector.dot(viewDirection));
+    if (upVector.lengthSq() < 1e-8) {
+      upVector.set(0, 1, 0).addScaledVector(viewDirection, -viewDirection.y);
+      if (upVector.lengthSq() < 1e-8) upVector.set(1, 0, 0);
+    }
+    upVector.normalize();
+
+    const safeRadius = Math.max(radius, 1);
+    const aspect = Math.max(this.container.clientWidth / Math.max(this.container.clientHeight, 1), 0.1);
+    let distance: number;
+
+    if (this.camera instanceof THREE.OrthographicCamera) {
+      // 正交投影：用包围球半径设置视锥体，屏幕较窄时也要保证横向能放下
+      const halfHeight = (safeRadius * 1.12) / Math.min(1, aspect);
+      this.orthoHalfHeight = halfHeight;
+      const halfWidth = halfHeight * aspect;
+
+      this.camera.left = -halfWidth;
+      this.camera.right = halfWidth;
+      this.camera.top = halfHeight;
+      this.camera.bottom = -halfHeight;
+      distance = Math.max(safeRadius * 3, 5);
+      this.camera.near = 0.1;
+      this.camera.far = distance + safeRadius * 4 + 100;
+      this.camera.updateProjectionMatrix();
+    } else {
+      // 透视投影：按垂直视野角让包围球刚好落入视野
+      const fovRad = (this.camera.fov * Math.PI) / 180;
+      distance = Math.max((safeRadius / Math.sin(fovRad / 2)) * 1.08, 4);
+      this.camera.near = 0.1;
+      this.camera.far = distance + safeRadius * 4 + 100;
+      this.camera.updateProjectionMatrix();
+    }
+
+    this.camera.up.copy(upVector);
+    this.camera.position.copy(center).addScaledVector(viewDirection, distance);
+    this.camera.lookAt(center);
+    this.controls.target.copy(center);
+    this.controls.maxDistance = Math.max(50, distance * 3);
     this.controls.update();
   }
 
@@ -191,8 +253,10 @@ export class SceneManager {
    * 开始动画循环
    */
   startAnimationLoop(callback?: () => void): void {
+    if (this.animationFrameId !== null) return; // 避免重复启动循环
+
     const animate = () => {
-      requestAnimationFrame(animate);
+      this.animationFrameId = requestAnimationFrame(animate);
       this.render();
       if (callback) callback();
     };
@@ -219,11 +283,11 @@ export class SceneManager {
       this.camera.aspect = aspect;
       this.camera.updateProjectionMatrix();
     } else {
-      const frustumSize = 10;
-      this.camera.left = frustumSize * aspect / -2;
-      this.camera.right = frustumSize * aspect / 2;
-      this.camera.top = frustumSize / 2;
-      this.camera.bottom = frustumSize / -2;
+      const halfWidth = this.orthoHalfHeight * aspect;
+      this.camera.left = -halfWidth;
+      this.camera.right = halfWidth;
+      this.camera.top = this.orthoHalfHeight;
+      this.camera.bottom = -this.orthoHalfHeight;
       this.camera.updateProjectionMatrix();
     }
     
@@ -244,7 +308,11 @@ export class SceneManager {
    * 清理资源
    */
   dispose(): void {
-    window.removeEventListener('resize', this.onResize.bind(this));
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    window.removeEventListener('resize', this.resizeHandler);
     this.controls.dispose();
     this.renderer.dispose();
     this.container.removeChild(this.renderer.domElement);

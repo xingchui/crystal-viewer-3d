@@ -5,8 +5,14 @@
 
 import type { CrystalViewer } from '../core/CrystalViewer';
 import { CellRegistry } from '../core/cells/CellImplementations';
-import { UI_SELECTORS, ELEMENT_FORMULAS, ELEMENT_ICONS, APP_CONFIG } from '../data/constants';
-import type { CellInfoDTO } from '../data/types';
+import { UI_SELECTORS, ELEMENT_FORMULAS, ELEMENT_ICONS, APP_CONFIG, KEYBOARD_SHORTCUTS } from '../data/constants';
+import type { ViewDirection } from '../data/types';
+
+interface ElectronMenuAPI {
+  onMenuScreenshot?: (callback: () => void) => void;
+  onMenuResetView?: (callback: () => void) => void;
+  removeAllListeners?: (channel: string) => void;
+}
 
 /**
  * UI管理器
@@ -24,60 +30,69 @@ export class UIManager {
    * 初始化所有UI组件
    */
   initialize(): void {
-    this.createCellButtons();
+    this.createCellSelect();
     this.bindControlEvents();
     this.bindButtonEvents();
     this.bindKeyboardShortcuts();
-    
+    this.bindElectronMenuEvents();
+
+    // 渲染完成后同步信息面板（超胞/截面切换后计数也会更新）
+    this.viewer.setRenderCompleteCallback(() => this.updateCellInfo());
+
     // 默认加载
-    this.selectCellButton(APP_CONFIG.defaultCellId);
+    this.viewer.loadCell(APP_CONFIG.defaultCellId);
+    this.syncCellSelect(APP_CONFIG.defaultCellId);
     this.updateCellInfo();
   }
 
   /**
-   * 创建晶胞选择按钮
+   * 创建晶胞选择下拉菜单
+   * 直接选择晶胞，用 optgroup 按晶体类型分组保留分类线索
    */
-  private createCellButtons(): void {
-    const container = document.getElementById(UI_SELECTORS.cellButtons);
-    if (!container) return;
+  private createCellSelect(): void {
+    const select = document.getElementById(UI_SELECTORS.cellSelect) as HTMLSelectElement | null;
+    if (!select) return;
 
-    const cells = CellRegistry.getAll();
-    
-    cells.forEach(cell => {
-      const btn = document.createElement('button');
-      btn.className = 'cell-btn';
-      btn.setAttribute('data-cell-id', cell.id);
-      
-      const icon = ELEMENT_ICONS[cell.id] ?? '💎';
-      const formula = ELEMENT_FORMULAS[cell.id] ?? cell.name;
-      
-      btn.innerHTML = `
-        <div class="icon">${icon}</div>
-        <div class="info">
-          <div class="name">${cell.nameZh}</div>
-          <div class="formula">${formula}</div>
-        </div>
-      `;
-      
-      const clickHandler = () => this.handleCellSelect(cell.id, btn);
-      btn.addEventListener('click', clickHandler);
-      
-      this.cleanupFns.push(() => {
-        btn.removeEventListener('click', clickHandler);
-      });
-      
-      container.appendChild(btn);
+    const groups = new Map<string, HTMLOptGroupElement>();
+
+    CellRegistry.getAll().forEach(cell => {
+      const category = cell.getCategory();
+      let group = groups.get(category);
+      if (!group) {
+        group = document.createElement('optgroup');
+        group.label = category;
+        groups.set(category, group);
+        select.appendChild(group);
+      }
+
+      const option = document.createElement('option');
+      option.value = cell.id;
+
+      const icon = ELEMENT_ICONS[cell.id];
+      const formula = ELEMENT_FORMULAS[cell.id];
+      option.textContent = [icon, cell.nameZh, formula ? `· ${formula}` : null]
+        .filter(Boolean)
+        .join(' ');
+
+      group.appendChild(option);
+    });
+
+    const changeHandler = () => this.handleCellSelect(select.value);
+    select.addEventListener('change', changeHandler);
+    this.cleanupFns.push(() => {
+      select.removeEventListener('change', changeHandler);
     });
   }
 
   /**
    * 处理晶胞选择
    */
-  private handleCellSelect(cellId: string, btn: HTMLElement): void {
-    this.selectCellButton(cellId);
-    
+  private handleCellSelect(cellId: string): void {
+    this.syncCellSelect(cellId);
+
     try {
       this.viewer.loadCell(cellId);
+      this.syncViewUi('3d');
       this.updateCellInfo();
     } catch (error) {
       console.error('Failed to load cell:', error);
@@ -85,17 +100,11 @@ export class UIManager {
   }
 
   /**
-   * 选中晶胞按钮
+   * 同步下拉菜单的选中项
    */
-  private selectCellButton(cellId: string): void {
-    document.querySelectorAll('.cell-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    
-    const btn = document.querySelector(`[data-cell-id="${cellId}"]`);
-    if (btn) {
-      btn.classList.add('active');
-    }
+  private syncCellSelect(cellId: string): void {
+    const select = document.getElementById(UI_SELECTORS.cellSelect) as HTMLSelectElement | null;
+    if (select) select.value = cellId;
   }
 
   /**
@@ -128,12 +137,72 @@ export class UIManager {
     this.bindSuperCellControls();
 
     // 正交投影
+    // 手动切换后方位角与投影类型不再对应任何预设按钮，因此清除预设高亮，
+    // 避免出现过期的高亮状态（不改变相机方向与取景）。
     this.bindCheckbox(UI_SELECTORS.controls.isOrthographic, (checked) => {
       this.viewer.setCameraType(checked);
+      this.clearViewSelection();
     });
 
     // 截面控制
     this.bindSlicePlaneControls();
+
+    // 投影视角按钮
+    this.bindViewButtons();
+  }
+
+  /**
+   * 绑定投影视角按钮
+   */
+  private bindViewButtons(): void {
+    const container = document.getElementById(UI_SELECTORS.controls.viewButtons);
+    if (!container) return;
+
+    const views: ViewDirection[] = ['3d', 'yz', 'xz', 'xy', 'body', 'face'];
+
+    container.querySelectorAll<HTMLButtonElement>('.view-btn').forEach(btn => {
+      const view = btn.dataset.view as ViewDirection | undefined;
+      if (!view || !views.includes(view)) return;
+
+      const handler = () => {
+        this.viewer.setViewDirection(view);
+        this.syncViewUi(view);
+      };
+
+      btn.addEventListener('click', handler);
+      this.cleanupFns.push(() => {
+        btn.removeEventListener('click', handler);
+      });
+    });
+  }
+
+  /**
+   * 同步投影按钮与正交投影复选框
+   */
+  private syncViewUi(view: ViewDirection): void {
+    document.querySelectorAll<HTMLButtonElement>('.view-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    const orthographic = document.getElementById(UI_SELECTORS.controls.isOrthographic) as HTMLInputElement | null;
+    if (orthographic) orthographic.checked = view !== '3d';
+  }
+
+  /**
+   * 清除投影预设高亮（手动切换正交投影后的"自定义视角"状态）
+   */
+  private clearViewSelection(): void {
+    document.querySelectorAll<HTMLButtonElement>('.view-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+  }
+
+  /**
+   * 重置视角并同步 UI 状态
+   */
+  private resetViewMode(): void {
+    this.viewer.resetView();
+    this.syncViewUi('3d');
   }
 
   /**
@@ -229,7 +298,7 @@ export class UIManager {
   private bindButtonEvents(): void {
     // 重置视角
     this.bindButton(UI_SELECTORS.buttons.resetView, () => {
-      this.viewer.resetView();
+      this.resetViewMode();
     });
 
     // 截图
@@ -278,7 +347,7 @@ export class UIManager {
     if (progressEl) progressEl.classList.add('active');
     
     try {
-      const blob = await this.viewer.exportRotationGIF(
+      const blob = await this.viewer.exportRotationVideo(
         { duration: 5, fps: 30, rotationSpeed: 1 },
         (progress) => {
           if (fillEl) {
@@ -289,7 +358,8 @@ export class UIManager {
       
       const url = URL.createObjectURL(blob);
       this.downloadFile(url, `crystal-rotation-${Date.now()}.webm`);
-      URL.revokeObjectURL(url);
+      // 立即 revoke 可能导致部分浏览器尚未开始下载，延迟释放
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error('Export failed:', error);
       alert('导出失败，请重试');
@@ -315,13 +385,20 @@ export class UIManager {
   private bindKeyboardShortcuts(): void {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) return;
+
+      // 在输入框/下拉框中打字时不触发全局快捷键
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)
+      ) return;
       
       switch (e.code) {
-        case 'KeyR':
+        case KEYBOARD_SHORTCUTS.resetView:
           e.preventDefault();
-          this.viewer.resetView();
+          this.resetViewMode();
           break;
-        case 'KeyS':
+        case KEYBOARD_SHORTCUTS.screenshot:
           e.preventDefault();
           this.handleScreenshot();
           break;
@@ -331,6 +408,23 @@ export class UIManager {
     document.addEventListener('keydown', handler);
     this.cleanupFns.push(() => {
       document.removeEventListener('keydown', handler);
+    });
+  }
+
+  /**
+   * 绑定 Electron 主进程菜单事件
+   */
+  private bindElectronMenuEvents(): void {
+    const api = (window as Window & { electronAPI?: ElectronMenuAPI }).electronAPI;
+    if (!api) return;
+
+    api.onMenuScreenshot?.(() => this.handleScreenshot());
+    api.onMenuResetView?.(() => this.resetViewMode());
+
+    this.cleanupFns.push(() => {
+      api.removeAllListeners?.('menu-screenshot');
+      api.removeAllListeners?.('menu-reset-view');
+      this.viewer.setRenderCompleteCallback(null);
     });
   }
 
@@ -369,6 +463,7 @@ export class UIManager {
    * 清理资源
    */
   dispose(): void {
+    this.viewer.setRenderCompleteCallback(null);
     this.cleanupFns.forEach(fn => fn());
     this.cleanupFns = [];
   }

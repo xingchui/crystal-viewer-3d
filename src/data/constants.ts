@@ -8,7 +8,7 @@ import type { RenderOptions, ExportSettings } from './types';
 /** 应用信息 */
 export const APP_CONFIG = {
   name: 'Crystal Viewer 3D',
-  version: '1.0.0',
+  version: '1.1.0',
   defaultCellId: 'diamond' as const,
   defaultBackgroundColor: '#1a1a2e',
 } as const;
@@ -40,7 +40,6 @@ export const RENDER_CONFIG = {
     fov: 45,
     near: 0.1,
     far: 1000,
-    defaultDistanceMultiplier: 3,
   },
 } as const;
 
@@ -65,25 +64,47 @@ export const EXPORT_CONFIG = {
 /** 元素化学式映射 */
 export const ELEMENT_FORMULAS: Record<string, string> = {
   diamond: 'C',
-  dryice: 'CO₂',
+  silicon: 'Si',
   sic: 'SiC',
-  c60: 'C₆₀',
-  c70: 'C₇₀', // 新增C70化学式（下标格式保持和C60一致）
+  sio2: 'SiO₂',
+  dryice: 'CO₂',
+  iodine: 'I₂',
+  ice: 'H₂O',
+  copper: 'Cu',
+  magnesium: 'Mg',
+  iron: 'Fe',
+  nacl: 'NaCl',
+  cscl: 'CsCl',
+  zns: 'ZnS',
+  caf2: 'CaF₂',
+  perovskite: 'CaTiO₃',
+  graphite: 'C',
 } as const;
 
 /** 元素图标映射 */
 export const ELEMENT_ICONS: Record<string, string> = {
   diamond: '💎',
-  dryice: '❄️',
+  silicon: '🔶',
   sic: '🔷',
-  c60: '⚽',
-  c70: '⚫', // 新增C70图标
+  sio2: '🔮',
+  dryice: '❄️',
+  iodine: '🟣',
+  ice: '🧊',
+  copper: '🟠',
+  magnesium: '⚪',
+  iron: '⚙️',
+  nacl: '🧂',
+  cscl: '⬜',
+  zns: '🟡',
+  caf2: '💠',
+  perovskite: '🔲',
+  graphite: '✏️',
 } as const;
 
 /** UI选择器常量 - 避免硬编码字符串 */
 export const UI_SELECTORS = {
   canvasWrapper: 'canvas-wrapper',
-  cellButtons: 'cell-buttons',
+  cellSelect: 'cell-select',
   infoPanel: {
     container: 'info-panel',
     title: 'info-title',
@@ -107,11 +128,12 @@ export const UI_SELECTORS = {
     superCellZ: 'supercell-z',
     isOrthographic: 'orthographic',
     slicePlane: 'slice-plane',  // 截面选择
+    viewButtons: 'view-buttons', // 投影视角按钮组
   },
   buttons: {
     resetView: 'reset-view',
     screenshot: 'screenshot',
-    exportVideo: 'export-gif',
+    exportVideo: 'export-video',
   },
   progress: {
     container: 'export-progress',
@@ -131,8 +153,6 @@ export const KEYBOARD_SHORTCUTS = {
 /** 性能配置 */
 export const PERFORMANCE_CONFIG = {
   renderDebounceMs: 50,  // 渲染防抖延迟
-  gifFrameIntervalMs: 10,  // GIF帧间隔
-  maxAtomsForHighQuality: 500,  // 高质量渲染原子数阈值
 } as const;
 
 /** 键计算常量 */
@@ -152,6 +172,7 @@ export const BOND_CALCULATION_CONFIG = {
     single: 0.08,
     double: 0.12,
     triple: 0.15,
+    hydrogen: 0.05,
   },
 } as const;
 

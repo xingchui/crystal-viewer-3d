@@ -5,9 +5,10 @@ import { BondRenderer } from './renderers/BondRenderer';
 import { LatticeRenderer } from './renderers/LatticeRenderer';
 import { BaseCell } from './cells/BaseCell';
 import { CellRegistry } from './cells/CellImplementations';
-import type { RenderOptions, ExportSettings, Atom, Bond, CellInfoDTO, AvailableCellDTO } from '../data/types';
-import { RENDER_CONFIG, EXPORT_CONFIG, ERROR_MESSAGES, SLICE_PLANE_CONFIG } from '../data/constants';
-import type { CellParams } from '../utils/coordinates';
+import type { RenderOptions, ExportSettings, Atom, Bond, CellInfoDTO, AvailableCellDTO, ViewDirection } from '../data/types';
+import { RENDER_CONFIG, EXPORT_CONFIG, ERROR_MESSAGES, SLICE_PLANE_CONFIG, PERFORMANCE_CONFIG } from '../data/constants';
+import { getTransformationMatrix } from '../utils/coordinates';
+import { filterForSlicePlane, type SlicePlane } from '../utils/slice';
 
 export type ExportProgressCallback = (progress: number) => void;
 
@@ -20,9 +21,16 @@ export class CrystalViewer {
   private currentOptions: RenderOptions = { ...RENDER_CONFIG.defaultOptions };
   private currentAtoms: Atom[] = [];
   private currentBonds: Bond[] = [];
+  private displayAtoms: Atom[] = [];
+  private displayBonds: Bond[] = [];
+  private hasRendered = false;
+  private needsCameraFit = false;
+  private renderCompleteCallback: (() => void) | null = null;
   private renderDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private slicePlane: 'none' | 'yz' | 'xz' | 'xy' = 'none';
+  private slicePlane: SlicePlane = 'none';
   private slicePlaneMesh: THREE.Mesh | null = null;
+  private currentView: ViewDirection = '3d';
+  private pendingView: ViewDirection | null = null;
 
   constructor(container: HTMLElement) {
     if (!container) throw new Error('Container required');
@@ -37,14 +45,28 @@ export class CrystalViewer {
     const cell = CellRegistry.get(cellId);
     if (!cell) throw new Error(ERROR_MESSAGES.cellNotFound(cellId));
     this.currentCell = cell;
+    // 切换晶胞后回到立体视图，避免沿用上一个晶胞的投影方向；
+    // 但调用方显式指定投影类型时尊重其设置（此时表示沿 [111] 的正交立体视图）
+    const hasExplicitProjection = options?.isOrthographic !== undefined;
     this.currentOptions = { ...this.currentOptions, ...options };
+    this.currentView = '3d';
+    if (!hasExplicitProjection) {
+      this.currentOptions.isOrthographic = false;
+    }
+    this.needsCameraFit = true;
+    this.pendingView = '3d';
     this.scheduleRender();
-    this.resetView();
+  }
+
+  /** 注册渲染完成回调，供 UI 同步信息面板 */
+  setRenderCompleteCallback(callback: (() => void) | null): void {
+    this.renderCompleteCallback = callback;
   }
 
   private scheduleRender(): void {
+    this.hasRendered = false;
     if (this.renderDebounceTimer) clearTimeout(this.renderDebounceTimer);
-    this.renderDebounceTimer = setTimeout(() => this.executeRender(), 50);
+    this.renderDebounceTimer = setTimeout(() => this.executeRender(), PERFORMANCE_CONFIG.renderDebounceMs);
   }
 
   private executeRender(): void {
@@ -60,41 +82,26 @@ export class CrystalViewer {
       this.currentBonds = cell.generateSuperCellBonds(nx, ny, nz);
     }
     
-    // 应用截面过滤
-    let displayAtoms = this.currentAtoms;
-    let displayBonds = this.currentBonds;
-    if (this.slicePlane !== 'none') {
-      const tolerance = SLICE_PLANE_CONFIG.tolerance; // 使用配置的截面容差
-      
-      // 第一步：找出在截面上的原子
-      const atomsOnPlane = new Set<number>();
-      this.currentAtoms.forEach((atom, index) => {
-        let isOnPlane = false;
-        if (this.slicePlane === 'yz') isOnPlane = Math.abs(atom.x) <= tolerance || Math.abs(atom.x - 1) <= tolerance;
-        if (this.slicePlane === 'xz') isOnPlane = Math.abs(atom.y) <= tolerance || Math.abs(atom.y - 1) <= tolerance;
-        if (this.slicePlane === 'xy') isOnPlane = Math.abs(atom.z) <= tolerance || Math.abs(atom.z - 1) <= tolerance;
-        if (isOnPlane) atomsOnPlane.add(index);
-      });
-      
-      // 第二步：对于分子晶体，还要包含与平面上原子成键的所有原子（完整分子）
-      const displayAtomIndices = new Set(atomsOnPlane);
-      if (cell.data.properties?.category === 'molecular') {
-        // 找出所有与平面上原子成键的原子
-        this.currentBonds.forEach(bond => {
-          if (atomsOnPlane.has(bond.atom1)) displayAtomIndices.add(bond.atom2);
-          if (atomsOnPlane.has(bond.atom2)) displayAtomIndices.add(bond.atom1);
-        });
+    // 应用截面过滤；过滤时会同步重映射键索引
+    const { atoms: displayAtoms, bonds: displayBonds } = filterForSlicePlane(
+      this.currentAtoms,
+      this.currentBonds,
+      this.slicePlane,
+      cell.data.properties?.category
+    );
+
+
+    this.displayAtoms = displayAtoms;
+    this.displayBonds = displayBonds;
+    this.hasRendered = true;
+
+    if (this.needsCameraFit) {
+      if (this.currentOptions.isOrthographic) {
+        this.sceneManager.setCameraType(true, this.calculateAtomBounds(displayAtoms));
       }
-      
-      // 第三步：获取要显示的原子
-      displayAtoms = this.currentAtoms.filter((_, i) => displayAtomIndices.has(i));
-      
-      // 第四步：只保留与显示原子相关的键
-      displayBonds = this.currentBonds.filter(bond => 
-        displayAtomIndices.has(bond.atom1) && displayAtomIndices.has(bond.atom2)
-      );
+      this.needsCameraFit = false;
     }
-    
+
     const { scene } = this.sceneManager;
     this.atomRenderer.render(scene, displayAtoms, cellParams, this.currentOptions);
     this.bondRenderer.render(scene, displayAtoms, displayBonds, cellParams, this.currentOptions);
@@ -106,6 +113,15 @@ export class CrystalViewer {
     
     // 更新截面平面显示
     this.updateSlicePlaneDisplay();
+
+    // 几何更新后重新套用投影方向，保证超胞/截面变化后仍然居中
+    if (this.pendingView) {
+      const view = this.pendingView;
+      this.pendingView = null;
+      this.applyViewDirection(view, displayAtoms);
+    }
+
+    this.renderCompleteCallback?.();
   }
 
   /**
@@ -165,52 +181,140 @@ export class CrystalViewer {
       throw new Error(ERROR_MESSAGES.invalidSuperCell(max));
     }
     this.currentOptions.superCell = [nx, ny, nz];
+    this.needsCameraFit = true;
+    // 超胞改变后重新取景，投影模式下继续保持当前方向
+    this.pendingView = this.currentView;
     this.scheduleRender();
   }
 
   setCameraType(isOrthographic: boolean): void {
     this.currentOptions.isOrthographic = isOrthographic;
-    // 计算原子边界并设置相机
-    if (this.currentCell && isOrthographic) {
-      const bounds = this.calculateAtomBounds();
-      this.sceneManager.setCameraType(isOrthographic, bounds);
+
+    if (isOrthographic) {
+      // 等下一次渲染拿到实际显示的原子后，再按包围球设置正交视锥体
+      this.needsCameraFit = true;
     } else {
-      this.sceneManager.setCameraType(isOrthographic);
+      this.needsCameraFit = false;
+      this.sceneManager.setCameraType(false);
     }
+
+    // 切换投影类型后保留当前视角方向
+    this.pendingView = this.currentView;
+    this.scheduleRender();
+  }
+
+  /**
+   * 设置观察方向（投影模式）。
+   * 投影方向会自动切换到正交投影，立体视图则恢复透视投影。
+   */
+  setViewDirection(view: ViewDirection): void {
+    if (view !== '3d' && !this.currentCell) return;
+
+    this.currentView = view;
+    const isProjection = view !== '3d';
+    this.currentOptions.isOrthographic = isProjection;
+
+    if (!this.currentCell) return;
+
+    if (isProjection) {
+      const atoms = this.hasRendered ? this.displayAtoms : this.currentCell.getAtoms();
+      this.sceneManager.setCameraType(true, this.calculateAtomBounds(atoms));
+    } else {
+      this.sceneManager.setCameraType(false);
+    }
+
+    this.needsCameraFit = isProjection;
+    this.pendingView = view;
+    this.scheduleRender();
+  }
+
+  /**
+   * 根据视角方向把相机放到结构外侧。
+   * 投影方向使用晶格向量计算，正交晶胞与六方晶胞都能得到正确的晶面方向。
+   */
+  private applyViewDirection(view: ViewDirection, atoms: Atom[]): void {
+    if (!this.currentCell || atoms.length === 0) return;
+
+    const bounds = this.calculateAtomBounds(atoms);
+    if (!bounds) return;
+
+    const center = new THREE.Vector3(
+      (bounds.minX + bounds.maxX) / 2,
+      (bounds.minY + bounds.maxY) / 2,
+      (bounds.minZ + bounds.maxZ) / 2
+    );
+    const radius = Math.sqrt(
+      Math.pow((bounds.maxX - bounds.minX) / 2, 2) +
+      Math.pow((bounds.maxY - bounds.minY) / 2, 2) +
+      Math.pow((bounds.maxZ - bounds.minZ) / 2, 2)
+    );
+
+    const matrix = getTransformationMatrix(this.currentCell.getCellParams());
+    const aVec = new THREE.Vector3().setFromMatrixColumn(matrix, 0);
+    const bVec = new THREE.Vector3().setFromMatrixColumn(matrix, 1);
+    const cVec = new THREE.Vector3().setFromMatrixColumn(matrix, 2);
+
+    // 确保相机类型与当前选项一致（切换晶胞/超胞后可能出现不同步）
+    const wantOrthographic = this.currentOptions.isOrthographic;
+    const isOrthographic = this.sceneManager.camera instanceof THREE.OrthographicCamera;
+    if (wantOrthographic !== isOrthographic) {
+      this.sceneManager.setCameraType(wantOrthographic, bounds);
+    }
+
+    let direction: THREE.Vector3;
+    let up: THREE.Vector3;
+
+    switch (view) {
+      case 'yz':
+        // 沿 a 轴观察，显示由 b、c 轴张成的 YZ 平面
+        direction = aVec;
+        up = cVec;
+        break;
+      case 'xz':
+        // 从 -b 侧观察，使 X 轴在屏幕上朝右、Z 轴朝上
+        direction = bVec.clone().negate();
+        up = cVec;
+        break;
+      case 'xy':
+        // 沿 c 轴观察
+        direction = cVec;
+        up = bVec;
+        break;
+      case 'body':
+        // 沿体对角线 [111] 观察
+        direction = aVec.clone().add(bVec).add(cVec);
+        up = cVec;
+        break;
+      case 'face':
+        // 沿面对角线 [110] 观察
+        direction = aVec.clone().add(bVec);
+        up = cVec;
+        break;
+      default:
+        // 默认立体视图
+        direction = new THREE.Vector3(1, 1, 1);
+        up = new THREE.Vector3(0, 1, 0);
+        break;
+    }
+
+    this.sceneManager.setView(direction, up, center, radius);
   }
 
   /**
    * 计算当前原子的边界框
    */
-  private calculateAtomBounds(): { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number } | undefined {
-    if (!this.currentCell || this.currentAtoms.length === 0) return undefined;
+  private calculateAtomBounds(
+    atoms: Atom[] = this.currentAtoms
+  ): { minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number } | undefined {
+    if (!this.currentCell || atoms.length === 0) return undefined;
     
-    const cellParams = this.currentCell.getCellParams();
-    const matrix = new THREE.Matrix4();
-    const { a, b, c, alpha, beta, gamma } = cellParams;
-    const alphaRad = (alpha * Math.PI) / 180;
-    const betaRad = (beta * Math.PI) / 180;
-    const gammaRad = (gamma * Math.PI) / 180;
-    
-    const ax = a;
-    const bx = b * Math.cos(gammaRad);
-    const by = b * Math.sin(gammaRad);
-    const cx = c * Math.cos(betaRad);
-    const cy = c * (Math.cos(alphaRad) - Math.cos(betaRad) * Math.cos(gammaRad)) / Math.sin(gammaRad);
-    const cz = Math.sqrt(c * c - cx * cx - cy * cy);
-    
-    matrix.set(
-      ax, bx, cx, 0,
-      0, by, cy, 0,
-      0, 0, cz, 0,
-      0, 0, 0, 1
-    );
+    const matrix = getTransformationMatrix(this.currentCell.getCellParams());
 
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
 
-    this.currentAtoms.forEach(atom => {
+    atoms.forEach(atom => {
       const frac = new THREE.Vector3(atom.x, atom.y, atom.z);
       const cart = frac.clone().applyMatrix4(matrix);
       minX = Math.min(minX, cart.x);
@@ -250,7 +354,7 @@ export class CrystalViewer {
    * 设置截面显示模式
    * @param plane - 'none' | 'yz' (x=0) | 'xz' (y=0) | 'xy' (z=0)
    */
-  setSlicePlane(plane: 'none' | 'yz' | 'xz' | 'xy'): void {
+  setSlicePlane(plane: SlicePlane): void {
     this.slicePlane = plane;
     this.scheduleRender();
   }
@@ -258,23 +362,32 @@ export class CrystalViewer {
   /**
    * 获取当前截面模式
    */
-  getSlicePlane(): 'none' | 'yz' | 'xz' | 'xy' {
+  getSlicePlane(): SlicePlane {
     return this.slicePlane;
   }
 
   resetView(): void {
-    if (!this.currentCell) { this.sceneManager.resetCamera(); return; }
-    const { a, b, c } = this.currentCell.getCellParams();
-    const maxDim = Math.max(a, b, c);
-    const distance = maxDim * RENDER_CONFIG.camera.defaultDistanceMultiplier;
-    this.sceneManager.camera.position.set(distance, distance, distance);
-    this.sceneManager.camera.lookAt(0, 0, 0);
-    this.sceneManager.controls.target.set(0, 0, 0);
-    this.sceneManager.controls.update();
+    this.currentView = '3d';
+    this.pendingView = '3d';
+    this.currentOptions.isOrthographic = false;
+    this.needsCameraFit = false;
+
+    if (!this.currentCell) {
+      this.sceneManager.setCameraType(false);
+      this.sceneManager.resetCamera();
+      return;
+    }
+
+    // 重置为可自由旋转的透视立体视图
+    this.sceneManager.setCameraType(false);
+    this.scheduleRender();
   }
 
   getCurrentCellInfo(): CellInfoDTO | null {
     if (!this.currentCell) return null;
+    // 优先显示实际渲染的原子/键；首次渲染尚未完成时回退到晶胞基础数据
+    const atoms = this.hasRendered ? this.displayAtoms : this.currentCell.getAtoms();
+    const bonds = this.hasRendered ? this.displayBonds : this.currentCell.getBonds();
     return {
       id: this.currentCell.id,
       name: this.currentCell.name,
@@ -283,8 +396,8 @@ export class CrystalViewer {
       category: this.currentCell.getCategory(),
       coordination: this.currentCell.getCoordination(),
       latticeConstants: this.currentCell.getLatticeConstants(),
-      atomCount: this.currentAtoms.length,
-      bondCount: this.currentBonds.length,
+      atomCount: atoms.length,
+      bondCount: bonds.length,
     };
   }
 
@@ -296,7 +409,7 @@ export class CrystalViewer {
 
   takeScreenshot(): string { return this.sceneManager.takeScreenshot(); }
 
-  async exportRotationGIF(settings?: Partial<ExportSettings>, onProgress?: ExportProgressCallback): Promise<Blob> {
+  async exportRotationVideo(settings?: Partial<ExportSettings>, onProgress?: ExportProgressCallback): Promise<Blob> {
     const config = { ...EXPORT_CONFIG.defaultSettings, ...settings };
     const canvas = this.sceneManager.getCanvas();
     const stream = canvas.captureStream(config.fps);
@@ -305,13 +418,16 @@ export class CrystalViewer {
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     const totalFrames = config.fps * config.duration;
     const angleStep = (Math.PI * 2 * config.rotationSpeed) / totalFrames;
+    const stopStream = () => stream.getTracks().forEach(track => track.stop());
     return new Promise((resolve, reject) => {
       mediaRecorder.onstop = () => {
+        stopStream();
         this.sceneManager.scene.rotation.y = 0;
         this.sceneManager.render();
-        resolve(new Blob(chunks, { type: 'video/webm' }));
+        resolve(new Blob(chunks, { type: EXPORT_CONFIG.mimeType.split(';')[0] }));
       };
       mediaRecorder.onerror = (e) => {
+        stopStream();
         this.sceneManager.scene.rotation.y = 0;
         this.sceneManager.render();
         reject(e);
@@ -337,7 +453,9 @@ export class CrystalViewer {
       this.slicePlaneMesh.geometry.dispose();
       (this.slicePlaneMesh.material as THREE.Material).dispose();
     }
+    this.atomRenderer.clear(this.sceneManager.scene);
     this.atomRenderer.dispose();
+    this.bondRenderer.clear(this.sceneManager.scene);
     this.bondRenderer.dispose();
     this.latticeRenderer.clear(this.sceneManager.scene);
     this.sceneManager.dispose();

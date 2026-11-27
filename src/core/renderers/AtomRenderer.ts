@@ -8,20 +8,12 @@ import type { Atom, RenderOptions } from '../../data/types';
 import { getElementColor, getAtomRadius } from '../../data/elements';
 import { fractionalToCartesian, type CellParams } from '../../utils/coordinates';
 
-// 可自定义颜色配置
-export interface AtomColorConfig {
-  element: string;
-  color: string;
-  metalness?: number;
-  roughness?: number;
-}
-
 export class AtomRenderer {
   private instancedMesh: THREE.InstancedMesh | null = null;
   private geometry: THREE.IcosahedronGeometry;
   private material: THREE.MeshPhysicalMaterial;
   private dummy: THREE.Object3D;
-  private colorConfig: Map<string, AtomColorConfig> = new Map();
+  private color: THREE.Color = new THREE.Color();
 
   constructor() {
     // 创建球体几何体 (128面体，足够圆润且性能良好)
@@ -40,39 +32,6 @@ export class AtomRenderer {
     
     // 用于计算变换的辅助对象
     this.dummy = new THREE.Object3D();
-  }
-
-  /**
-   * 设置元素颜色配置
-   */
-  setElementColor(config: AtomColorConfig): void {
-    this.colorConfig.set(config.element, config);
-  }
-
-  /**
-   * 批量设置颜色配置
-   */
-  setElementColors(configs: AtomColorConfig[]): void {
-    configs.forEach(config => this.setElementColor(config));
-  }
-
-  /**
-   * 重置颜色配置
-   */
-  resetColorConfig(): void {
-    this.colorConfig.clear();
-  }
-
-  /**
-   * 获取元素颜色
-   */
-  private getAtomColor(element: string, customColor?: string): string {
-    // 优先使用自定义配置
-    const config = this.colorConfig.get(element);
-    if (config) return config.color;
-    
-    // 使用默认金属色
-    return getElementColor(element, customColor, true);
   }
 
   /**
@@ -103,10 +62,7 @@ export class AtomRenderer {
     
     this.instancedMesh.castShadow = true;
     this.instancedMesh.receiveShadow = true;
-
-    const _matrix = new THREE.Matrix4();
-    const color = new THREE.Color();
-
+    
     atoms.forEach((atom, index) => {
       // 转换为笛卡尔坐标
       const position = fractionalToCartesian(atom, cellParams);
@@ -123,9 +79,8 @@ export class AtomRenderer {
       this.instancedMesh!.setMatrixAt(index, this.dummy.matrix);
       
       // 设置颜色
-      const atomColor = this.getAtomColor(atom.element, atom.color);
-      color.set(atomColor);
-      this.instancedMesh!.setColorAt(index, color);
+      this.color.set(getElementColor(atom.element, atom.color, true));
+      this.instancedMesh!.setColorAt(index, this.color);
     });
 
     // 标记需要更新
@@ -143,7 +98,8 @@ export class AtomRenderer {
   clear(scene: THREE.Scene): void {
     if (this.instancedMesh) {
       scene.remove(this.instancedMesh);
-      this.instancedMesh.geometry.dispose();
+      // 共享的 geometry/material 由 dispose() 负责，这里只释放实例缓冲和克隆出的材质
+      this.instancedMesh.dispose();
       (this.instancedMesh.material as THREE.Material).dispose();
       this.instancedMesh = null;
     }
@@ -162,55 +118,14 @@ export class AtomRenderer {
   }
 
   /**
-   * 获取InstancedMesh实例
-   */
-  getMesh(): THREE.InstancedMesh | null {
-    return this.instancedMesh;
-  }
-
-  /**
-   * 高亮指定原子
-   */
-  highlightAtom(index: number, highlightColor: string = '#ffff00'): void {
-    if (!this.instancedMesh) return;
-    
-    const color = new THREE.Color(highlightColor);
-    this.instancedMesh.setColorAt(index, color);
-    this.instancedMesh.instanceColor!.needsUpdate = true;
-  }
-
-  /**
-   * 批量高亮原子
-   */
-  highlightAtoms(indices: number[], highlightColor: string = '#ffff00'): void {
-    if (!this.instancedMesh) return;
-    
-    const color = new THREE.Color(highlightColor);
-    indices.forEach(index => {
-      this.instancedMesh!.setColorAt(index, color);
-    });
-    this.instancedMesh.instanceColor!.needsUpdate = true;
-  }
-
-  /**
-   * 重置所有原子颜色
-   */
-  resetColors(atoms: Atom[]): void {
-    if (!this.instancedMesh) return;
-    
-    const color = new THREE.Color();
-    atoms.forEach((atom, index) => {
-      const atomColor = this.getAtomColor(atom.element, atom.color);
-      color.set(atomColor);
-      this.instancedMesh!.setColorAt(index, color);
-    });
-    this.instancedMesh.instanceColor!.needsUpdate = true;
-  }
-
-  /**
    * 销毁渲染器
    */
   dispose(): void {
+    if (this.instancedMesh) {
+      this.instancedMesh.dispose();
+      (this.instancedMesh.material as THREE.Material).dispose();
+      this.instancedMesh = null;
+    }
     this.geometry.dispose();
     this.material.dispose();
   }

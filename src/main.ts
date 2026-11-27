@@ -14,6 +14,7 @@ import { APP_CONFIG } from './data/constants';
 class CrystalViewerApp {
   private viewer: CrystalViewer | null = null;
   private uiManager: UIManager | null = null;
+  private readonly beforeUnloadHandler = () => this.dispose();
 
   /**
    * 启动应用
@@ -35,7 +36,7 @@ class CrystalViewerApp {
       this.uiManager.initialize();
 
       // 绑定窗口关闭事件
-      window.addEventListener('beforeunload', () => this.dispose());
+      window.addEventListener('beforeunload', this.beforeUnloadHandler);
 
       console.log(`${APP_CONFIG.name} v${APP_CONFIG.version} 启动成功`);
     } catch (error) {
@@ -81,6 +82,7 @@ class CrystalViewerApp {
    * 清理资源
    */
   private dispose(): void {
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     this.uiManager?.dispose();
     this.viewer?.dispose();
     this.uiManager = null;

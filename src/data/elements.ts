@@ -214,6 +214,16 @@ export const ELEMENT_DATA: Record<string, ElementData> = {
     color: '#3DFF00',
     metalColor: '#90D090'
   },
+  'Ti': {
+    symbol: 'Ti',
+    name: 'Titanium',
+    nameZh: '钛',
+    atomicNumber: 22,
+    atomicRadius: 1.60,
+    vdwRadius: 2.00,
+    color: '#BFC2C7',
+    metalColor: '#A8A8B0'
+  },
   'Fe': {
     symbol: 'Fe',
     name: 'Iron',
@@ -265,6 +275,16 @@ export const ELEMENT_DATA: Record<string, ElementData> = {
     vdwRadius: 2.15,
     color: '#FFD123',
     metalColor: '#FFD700'  // 金色
+  },
+  'I': {
+    symbol: 'I',
+    name: 'Iodine',
+    nameZh: '碘',
+    atomicNumber: 53,
+    atomicRadius: 1.39,
+    vdwRadius: 1.98,
+    color: '#940094',
+    metalColor: '#A040A0'  // 碘紫色
   }
 };
 

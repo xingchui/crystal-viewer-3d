@@ -85,60 +85,33 @@
       border-radius: 2px;
     }
 
-    .cell-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .cell-btn {
-      display: flex;
-      align-items: center;
-      padding: 12px 16px;
+    .cell-select {
+      width: 100%;
+      padding: 10px 12px;
       background-color: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: var(--text-primary);
-      text-align: left;
-    }
-
-    .cell-btn:hover {
-      background-color: var(--primary-color);
-      border-color: var(--primary-color);
-    }
-
-    .cell-btn.active {
-      background-color: var(--primary-color);
-      border-color: var(--primary-color);
-    }
-
-    .cell-btn .icon {
-      width: 32px;
-      height: 32px;
-      margin-right: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: rgba(255,255,255,0.1);
       border-radius: 6px;
-      font-size: 18px;
-    }
-
-    .cell-btn .info {
-      flex: 1;
-    }
-
-    .cell-btn .name {
-      font-weight: 500;
+      color: var(--text-primary);
       font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.2s;
     }
 
-    .cell-btn .formula {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 2px;
+    .cell-select:hover,
+    .cell-select:focus {
+      border-color: var(--primary-color);
+    }
+
+    .cell-select:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 1px;
+    }
+
+    .cell-select option,
+    .cell-select optgroup {
+      background-color: var(--bg-card);
+      color: var(--text-primary);
     }
 
     /* 控制面板 */
@@ -180,6 +153,40 @@
       width: 16px;
       height: 16px;
       accent-color: var(--primary-color);
+    }
+
+    /* 投影视角按钮 */
+    .view-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .view-btn {
+      padding: 7px 6px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .view-btn:hover {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .view-btn.active {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      font-weight: 600;
+    }
+
+    .view-btn[data-view="3d"] {
+      grid-column: 1 / -1;
     }
 
     .slider-group {
@@ -412,9 +419,9 @@
       <!-- 晶胞选择 -->
       <div class="cell-selector">
         <h2 class="section-title">选择晶胞</h2>
-        <div class="cell-buttons" id="cell-buttons">
-          <!-- 动态生成 -->
-        </div>
+        <select class="cell-select" id="cell-select" aria-label="选择晶胞">
+          <!-- 按晶体类型分组的选项由 UIManager 动态生成 -->
+        </select>
       </div>
 
       <!-- 显示控制 -->
@@ -474,6 +481,14 @@
               <span>正交投影</span>
             </label>
           </div>
+          <div class="view-buttons" id="view-buttons">
+            <button class="view-btn active" data-view="3d" type="button" title="返回可自由旋转的立体视图">立体视图</button>
+            <button class="view-btn" data-view="yz" type="button" title="沿 a 轴观察，显示 YZ 平面投影">YZ 平面</button>
+            <button class="view-btn" data-view="xz" type="button" title="沿 b 轴观察，显示 XZ 平面投影">XZ 平面</button>
+            <button class="view-btn" data-view="xy" type="button" title="沿 c 轴观察，显示 XY 平面投影">XY 平面</button>
+            <button class="view-btn" data-view="body" type="button" title="沿晶胞体对角线 [111] 观察">体对角线</button>
+            <button class="view-btn" data-view="face" type="button" title="沿晶胞面对角线 [110] 观察">面对角线</button>
+          </div>
         </div>
 
         <div class="control-group">
@@ -493,7 +508,7 @@
       <div class="actions">
         <button class="btn btn-secondary" id="reset-view">⟲ 重置视角</button>
         <button class="btn btn-primary" id="screenshot">📷 保存截图</button>
-        <button class="btn btn-accent" id="export-gif">🎬 导出旋转GIF</button>
+        <button class="btn btn-accent" id="export-video">🎬 导出旋转视频 (WebM)</button>
       </div>
     </aside>
 
@@ -531,7 +546,7 @@
 
       <!-- 导出进度 -->
       <div class="export-progress" id="export-progress">
-        <div>正在生成GIF...</div>
+        <div>正在生成视频...</div>
         <div class="progress-bar">
           <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
         </div>

@@ -10,9 +10,9 @@
  */
 
 import * as THREE from 'three';
-import type { Atom, Bond, UnitCell, LatticeType } from '../data/types';
+import type { Atom, Bond, UnitCell } from '../data/types';
 import { BOND_CALCULATION_CONFIG } from '../data/constants';
-import { getMinimumDistance, type CellParams } from './coordinates';
+import type { CellParams } from './coordinates';
 
 // ==================== 常量定义 ====================
 
@@ -108,8 +108,11 @@ function findNearestNeighborBonds<T extends IndexedAtom>(
 ): Bond[] {
   if (distances.length === 0) return [];
   
-  // 找到最小距离
-  const minDistance = Math.min(...distances.map(d => d.dist));
+  // 找到最小距离（不用展开运算符，避免超胞大数组超过调用栈上限）
+  let minDistance = Infinity;
+  for (const d of distances) {
+    if (d.dist < minDistance) minDistance = d.dist;
+  }
   
   // 容差范围
   const lowerBound = minDistance * (1 - tolerance);
@@ -172,15 +175,21 @@ function getAllCellAtoms(cell: UnitCell): IndexedAtom[] {
 // ==================== 键计算策略实现 ====================
 
 /**
- * 同种元素键计算策略（金刚石）
+ * 同种元素键计算策略（金刚石、金属晶体等）
  * 规则：只连接距离最近的同种原子对
+ *
+ * 不传 element 时自动使用晶胞中的第一种元素，便于金刚石型 Si、
+ * fcc Cu、bcc Fe、hcp Mg 等共用同一套最近邻逻辑。
  */
 class HomogeneousBondStrategy implements BondCalculationStrategy {
-  constructor(private element: string) {}
+  constructor(private element?: string) {}
   
   calculate(atoms: IndexedAtom[], params: CellParams): Bond[] {
+    const targetElement = this.element ?? atoms[0]?.atom.element;
+    if (!targetElement) return [];
+
     const matrix = createTransformationMatrix(params);
-    const targetAtoms = atoms.filter(a => a.atom.element === this.element);
+    const targetAtoms = atoms.filter(a => a.atom.element === targetElement);
     
     const distances: DistanceInfo[] = [];
     
@@ -347,7 +356,7 @@ function createBondStrategy(cell: UnitCell): BondCalculationStrategy {
   // 根据晶格类型选择策略
   switch (latticeType) {
     case 'diamond':
-      return new HomogeneousBondStrategy('C');
+      return new HomogeneousBondStrategy(); // 金刚石 / 晶体硅
       
     case 'zincblende':
       return new HeterogeneousBondStrategy(); // Si-C 或 Zn-S
@@ -356,6 +365,11 @@ function createBondStrategy(cell: UnitCell): BondCalculationStrategy {
     case 'cesiumchloride':
     case 'fluorite':
       return new HeterogeneousBondStrategy(); // Na-Cl, Cs-Cl, Ca-F
+
+    case 'fcc':
+    case 'bcc':
+    case 'hcp':
+      return new HomogeneousBondStrategy(); // 金属晶体最近邻
       
     case 'hexagonal':
       return new GraphiteBondStrategy();
@@ -369,24 +383,22 @@ function createBondStrategy(cell: UnitCell): BondCalculationStrategy {
 // ==================== 主入口函数 ====================
 
 /**
- * 计算晶胞的化学键（重构版本）
- * 
- * 改进点：
- * 1. 使用策略模式替代庞大的 switch 语句
- * 2. 提取重复的矩阵计算和坐标转换
- * 3. 提取通用的最近邻查找算法
- * 4. 代码量减少约 50%，可维护性大幅提升
+ * 计算常规晶胞内的化学键。
+ *
+ * 坐标过滤会移除越界的辅助原子，但键端点仍指向 cell.atoms 的原始下标，
+ * 以便与渲染层的原子数组保持一致。
  */
 export function calculateCellBonds(cell: UnitCell): Bond[] {
+  // 显式键（分子内键、氢键、Si-O、Ti-O 等）优先，避免通用策略误判
+  if (cell.bonds) {
+    return cell.bonds;
+  }
+
   const atoms = getAllCellAtoms(cell);
   const params: CellParams = {
     a: cell.a, b: cell.b, c: cell.c,
     alpha: cell.alpha, beta: cell.beta, gamma: cell.gamma,
   };
-  
-  const strategy = createBondStrategy(cell);
-  return strategy.calculate(atoms, params);
-}
 
-// 保留旧函数以保持兼容性（如果需要）
-export { getAllCellAtoms as getFilteredCellAtoms };
+  return createBondStrategy(cell).calculate(atoms, params);
+}

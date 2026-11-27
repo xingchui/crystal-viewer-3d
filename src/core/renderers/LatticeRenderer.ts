@@ -37,7 +37,7 @@ export class LatticeRenderer {
     this.latticeGroup.add(axes);
 
     // 添加晶格常数标注
-    const labels = this.createLabels(cellParams);
+    const labels = this.createLabels();
     if (labels) {
       this.latticeGroup.add(labels);
     }
@@ -158,7 +158,7 @@ export class LatticeRenderer {
   /**
    * 创建晶格常数标注
    */
-  private createLabels(cellParams: CellParams): THREE.Group | null {
+  private createLabels(): THREE.Group | null {
     // 使用简单的几何体表示标签位置
     const group = new THREE.Group();
     

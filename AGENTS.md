@@ -1,125 +1,53 @@
 # AGENTS.md - Crystal Viewer 3D
 
-## Project Overview
+TypeScript + Three.js crystal-structure viewer built with Vite, packaged with Electron (primary) and Tauri. UI text, docs, and domain comments are Chinese.
 
-3D晶体结构可视化工具 - A TypeScript-based 3D crystal structure visualization application using Three.js, with Electron and Tauri desktop packaging support.
+## Commands
 
-## Build Commands
+Run from this directory:
 
-```bash
-# Development
-yarn dev              # Start Vite dev server
-yarn electron-dev     # Start Electron in dev mode (requires vite dev running)
+- `yarn install`
+- `yarn dev` — Vite on http://localhost:5173
+- `yarn electron-dev` — requires `yarn dev` already running; loads localhost:5173 only when `NODE_ENV=development`
+- `yarn build` — `tsc && vite build`; typecheck alone: `npx tsc --noEmit`
+- `yarn build:offline` — single-file offline HTML into `release/Crystal-Viewer-Offline-<version>.html`
+- `yarn dist:all` — offline HTML + Windows portable exe
+- `yarn test:run` / `yarn test` — Vitest once / watch
+- `yarn vitest run src/__tests__/cells.test.ts` — one file; add `-t "name"` for one test
+- `yarn electron-build-win` — portable + ZIP into `release/`
+- `yarn tauri-build` — requires Rust
 
-# Production Build
-yarn build            # Build frontend (TypeScript + Vite)
-yarn electron-build-win   # Build Windows Electron app
-yarn tauri-build      # Build Tauri app (requires Rust)
+No lint or formatter script exists.
 
-# Packaging
-./build.bat           # Windows build script (electron|tauri|both)
-./build.sh            # Unix build script
+## Baseline checks
 
-# Testing
-yarn test             # Run unit tests in watch mode
-yarn test:run         # Run unit tests once
-```
+`npx tsc --noEmit` and `yarn test:run` pass. C60/C70 fullerene cells are intentionally not part of this app.
 
-## Project Structure
+## Architecture
 
-```
-src/
-├── core/             # Core 3D rendering logic
-│   ├── CrystalViewer.ts
-│   ├── cells/        # Cell implementations
-│   └── renderers/    # Three.js renderers
-├── data/             # Type definitions & constants
-├── ui/               # UI management
-├── utils/            # Utilities (coordinates, bonds)
-├── main.ts           # App entry point
-├── index.html        # HTML template
-electron/             # Electron main process
-├── main.mjs          # Main entry (ES Module)
-├── preload.mjs       # Preload script
-└── assets/           # Icons & resources
-src-tauri/            # Tauri configuration
-public/               # Static assets
-dist/                 # Build output (gitignored)
-release/              # Electron build output (gitignored)
-```
+- Entry: `src/main.ts` → `CrystalViewer` (`src/core/CrystalViewer.ts`) + `UIManager` (`src/ui/UIManager.ts`).
+- `CellRegistry` in `src/core/cells/CellImplementations.ts` is the source of truth for selectable cells; `UIManager` builds the grouped cell dropdown (`<optgroup>` per category) from `CellRegistry.getAll()`.
+- `src/data/cells.ts` holds cell definitions only. `CellRegistry` is the single source of truth for selectable cells; do not add a second lookup table there.
+- Renderers in `src/core/renderers/` own Three.js geometry/materials; dispose them in `dispose()`.
+- Electron main is ESM (`electron/main.mjs`, preload `electron/preload.mjs`); production loads `dist/index.html`.
+- `tsconfig.json` enables `verbatimModuleSyntax` (type-only imports need `import type`) and typechecks only `src/**`.
 
-## Code Style Guidelines
+## Adding a cell
 
-### TypeScript
-- **Target**: ES2022, strict mode enabled
-- **Module**: ESNext with bundler resolution
-- Always use explicit return types for public functions
-- Prefer `readonly` for immutable properties
-- Use `type` for unions, `interface` for objects
+1. Define/export the `UnitCell` in `src/data/cells.ts`.
+2. Add a `BaseCell` subclass and a `CellRegistry.register(...)` call in `src/core/cells/CellImplementations.ts` (this is the only selectable-cell registry).
+3. Add `ELEMENT_FORMULAS` and `ELEMENT_ICONS` entries in `src/data/constants.ts`; otherwise the UI falls back to the name and 💎.
+4. Add tests under `src/__tests__/` (Vitest includes only that directory, node environment).
 
-### Naming Conventions
-- **Classes**: PascalCase (`CrystalViewer`, `AtomRenderer`)
-- **Interfaces**: PascalCase with no I-prefix (`RenderOptions`, `CellParams`)
-- **Types**: PascalCase (`ElementSymbol`, `BondType`)
-- **Functions**: camelCase (`loadCell`, `updateRender`)
-- **Constants**: UPPER_SNAKE_CASE for true constants
-- **Private members**: prefix with underscore (`_currentCell`)
-- **Boolean variables**: use `is` prefix (`isOrthographic`)
+Known drift: `src/data/adamantane.ts` is an unreferenced prototype. C60/C70 fullerene cells live in a separate app.
 
-### Imports
-```typescript
-// External libraries first
-import * as THREE from 'three';
+## Coordinates and types
 
-// Internal types
-import type { RenderOptions, Atom } from '../data/types';
+- `Atom.x/y/z` are fractional coordinates (normally 0..1), multiplied by `a/b/c` in Å by `src/utils/bonds.ts`.
+- Molecular builders fit an 8 Å box with `(v + 4) / 8`; do not put raw Å values in `atoms`.
+- Elements must be members of the `ElementSymbol` union in `src/data/types.ts` or typecheck fails.
 
-// Internal modules
-import { SceneManager } from './renderers/SceneManager';
-import { RENDER_CONFIG } from '../data/constants';
-```
+## Stale docs and files
 
-### Error Handling
-- Throw descriptive errors for invalid states
-- Use constants for error messages (`ERROR_MESSAGES.invalidSuperCell()`)
-- Always clean up resources in `dispose()` methods
-- Handle async errors with try-catch
-
-### Comments
-- JSDoc for public APIs
-- Chinese comments acceptable for domain-specific terms
-- Keep comments current with code changes
-
-## Technology Stack
-
-- **Build Tool**: Vite 7.x
-- **Language**: TypeScript 5.x (strict mode)
-- **3D Engine**: Three.js 0.182
-- **Desktop**: Electron 40.x / Tauri 2.x
-- **Package Manager**: Yarn (preferred) or npm 8+
-
-## Common Tasks
-
-### Add New Cell Type
-1. Define cell data in `src/data/cells.ts`
-2. Create class in `src/core/cells/CellImplementations.ts`
-3. Register in `CellRegistry.initializeDefaults()`
-
-### Fix ES Module Issues
-- Electron main process: use `.mjs` extension (ES Module)
-- Use `import` syntax instead of `require`
-- Use `import.meta.url` and `fileURLToPath` for __dirname equivalent
-- Never mix `require` and `import` in same file
-
-### Debug Build Issues
-- Check `release/build-log.txt` for Electron errors
-- Ensure `asar: false` in package.json for debugging
-- Use `yarn` instead of `npm` to avoid compatibility issues
-
-## Important Notes
-
-- This is a **browser-first** app with desktop packaging
-- Keep frontend code decoupled from Electron-specific APIs
-- Use constants from `src/data/constants.ts` for configuration
-- Always dispose Three.js resources to prevent memory leaks
-- Test both web (`yarn dev`) and desktop (`yarn electron-dev`) modes
+- `PACKAGING.md`, `BUILD_ARTIFACTS.md`, `FIX_INSTRUCTIONS.md`, and `BUILD_VERIFICATION_REPORT.md` reference old `E:\op\op2\...` paths, `electron/main.js`/`preload.js`, and an `nsis` target. Trust `package.json`, `electron/*.mjs`, and `src-tauri/tauri.conf.json` instead.
+- `build-log.txt` and `dist/` are old outputs.

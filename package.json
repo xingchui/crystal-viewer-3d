@@ -1,6 +1,6 @@
 {
   "name": "crystal-viewer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "3D晶体结构可视化工具",
   "private": true,
   "type": "module",
@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:offline": "tsc && vite build --config vite.config.offline.ts && node scripts/build-offline.mjs",
+    "dist:all": "npm run build:offline && npm run electron-build-win",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri-dev": "tauri dev",
@@ -63,6 +65,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",
+    "@types/three": "^0.182.0",
     "cross-env": "^7.0.3",
     "electron": "^40.2.1",
     "electron-builder": "^26.7.0",
@@ -71,8 +74,6 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@types/three": "^0.182.0",
-    "gif.js.optimized": "^1.0.1",
     "three": "^0.182.0"
   },
   "author": "Crystal Viewer Team",

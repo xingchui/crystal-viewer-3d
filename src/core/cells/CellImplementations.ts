@@ -4,7 +4,24 @@
  */
 
 import { BaseCell } from './BaseCell';
-import { diamondCell, dryIceCell, sicCell, naclCell, csclCell, znsCell, caf2Cell, graphiteCell, c60Cell, c70Cell } from '../../data/cells';
+import {
+  diamondCell,
+  siliconCell,
+  sicCell,
+  sio2Cell,
+  dryIceCell,
+  iodineCell,
+  iceCell,
+  copperCell,
+  magnesiumCell,
+  ironCell,
+  naclCell,
+  csclCell,
+  znsCell,
+  caf2Cell,
+  perovskiteCell,
+  graphiteCell,
+} from '../../data/cells';
 
 // 金刚石晶胞
 export class DiamondCell extends BaseCell {
@@ -12,6 +29,30 @@ export class DiamondCell extends BaseCell {
   readonly name = 'Diamond';
   readonly nameZh = '金刚石';
   readonly data = diamondCell;
+}
+
+// 晶体硅晶胞
+export class SiliconCell extends BaseCell {
+  readonly id = 'silicon';
+  readonly name = 'Silicon';
+  readonly nameZh = '晶体硅';
+  readonly data = siliconCell;
+}
+
+// 碳化硅晶胞
+export class SiCCell extends BaseCell {
+  readonly id = 'sic';
+  readonly name = 'Silicon Carbide';
+  readonly nameZh = '碳化硅';
+  readonly data = sicCell;
+}
+
+// 二氧化硅晶胞
+export class SiO2Cell extends BaseCell {
+  readonly id = 'sio2';
+  readonly name = 'Silicon Dioxide';
+  readonly nameZh = '二氧化硅';
+  readonly data = sio2Cell;
 }
 
 // 干冰晶胞
@@ -22,12 +63,44 @@ export class DryIceCell extends BaseCell {
   readonly data = dryIceCell;
 }
 
-// 碳化硅晶胞
-export class SiCCell extends BaseCell {
-  readonly id = 'sic';
-  readonly name = 'Silicon Carbide';
-  readonly nameZh = '碳化硅';
-  readonly data = sicCell;
+// 碘晶胞
+export class IodineCell extends BaseCell {
+  readonly id = 'iodine';
+  readonly name = 'Iodine';
+  readonly nameZh = '碘';
+  readonly data = iodineCell;
+}
+
+// 冰晶胞
+export class IceCell extends BaseCell {
+  readonly id = 'ice';
+  readonly name = 'Ice';
+  readonly nameZh = '冰';
+  readonly data = iceCell;
+}
+
+// 铜晶胞
+export class CopperCell extends BaseCell {
+  readonly id = 'copper';
+  readonly name = 'Copper';
+  readonly nameZh = '铜';
+  readonly data = copperCell;
+}
+
+// 镁晶胞
+export class MagnesiumCell extends BaseCell {
+  readonly id = 'magnesium';
+  readonly name = 'Magnesium';
+  readonly nameZh = '镁';
+  readonly data = magnesiumCell;
+}
+
+// 铁晶胞
+export class IronCell extends BaseCell {
+  readonly id = 'iron';
+  readonly name = 'Iron';
+  readonly nameZh = '铁';
+  readonly data = ironCell;
 }
 
 // 氯化钠晶胞
@@ -62,28 +135,20 @@ export class CaF2Cell extends BaseCell {
   readonly data = caf2Cell;
 }
 
+// 钙钛矿晶胞
+export class PerovskiteCell extends BaseCell {
+  readonly id = 'perovskite';
+  readonly name = 'Perovskite';
+  readonly nameZh = '钙钛矿';
+  readonly data = perovskiteCell;
+}
+
 // 石墨晶胞
 export class GraphiteCell extends BaseCell {
   readonly id = 'graphite';
   readonly name = 'Graphite';
   readonly nameZh = '石墨';
   readonly data = graphiteCell;
-}
-
-// 碳60富勒烯
-export class C60Cell extends BaseCell {
-  readonly id = 'c60';
-  readonly name = 'C60 Fullerene';
-  readonly nameZh = '碳60富勒烯';
-  readonly data = c60Cell;
-}
-
-// 碳70富勒烯
-export class C70Cell extends BaseCell {
-  readonly id = 'c70';
-  readonly name = 'C70 Fullerene';
-  readonly nameZh = '碳70富勒烯';
-  readonly data = c70Cell;
 }
 
 // 晶胞注册表
@@ -143,16 +208,23 @@ export class CellRegistry {
    * 初始化默认晶胞
    */
   static initializeDefaults(): void {
+    // 顺序即 UI 顺序：共价 → 分子 → 金属 → 离子 → 混合
     this.register(new DiamondCell());
-    this.register(new DryIceCell());
+    this.register(new SiliconCell());
     this.register(new SiCCell());
+    this.register(new SiO2Cell());
+    this.register(new DryIceCell());
+    this.register(new IodineCell());
+    this.register(new IceCell());
+    this.register(new CopperCell());
+    this.register(new MagnesiumCell());
+    this.register(new IronCell());
     this.register(new NaClCell());
     this.register(new CsClCell());
     this.register(new ZnSCell());
     this.register(new CaF2Cell());
+    this.register(new PerovskiteCell());
     this.register(new GraphiteCell());
-    this.register(new C60Cell());
-    this.register(new C70Cell()); // 注册C70晶胞
   }
 }
 

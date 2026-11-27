@@ -11,8 +11,7 @@
  * 包含完整的8个顶点、12条棱、6个面，以满足教学演示需求
  */
 
-import type { UnitCell, Bond, Atom } from './types';
-import { c70Cell } from './c70'; // 新增导入c70Cell
+import type { UnitCell, Atom, Bond } from './types';
 
 /**
  * 金刚石 (Diamond) - 面心立方结构
@@ -78,12 +77,46 @@ export const diamondCell: UnitCell = {
 
 /**
  * 干冰 (Dry Ice) - CO₂分子晶体，面心立方结构
- * 
+ *
  * 结构描述：
- * - 晶格类型：面心立方 (FCC)
+ * - 空间群 Pa-3（面心立方），常规晶胞含 4 个 CO₂ 分子
  * - CO₂分子位于面心立方格点
- * - 每个CO₂分子：1个C + 2个O，沿c轴方向
+ * - 每个CO₂分子：1个C + 2个O
+ * - 4 种分子取向分别沿 4 条体对角线：
+ *   顶点为 [111]，三组面心分别为 [1-1-1]、[11-1]、[-11-1]
  */
+
+/** CO₂ 中 O 相对 C 的分数坐标偏移（Pa-3 的 8c 位点 x≈0.115） */
+const CO2_O_OFFSET = 0.115;
+
+type FractionalVec3 = readonly [number, number, number];
+
+/** 以 center 为中心、沿 offset 的正反方向各放一个 O，生成一个 CO₂ 分子 */
+function co2MoleculeAt(center: FractionalVec3, offset: FractionalVec3): Atom[] {
+  return [
+    { element: 'C', x: center[0], y: center[1], z: center[2] },
+    { element: 'O', x: center[0] + offset[0], y: center[1] + offset[1], z: center[2] + offset[2] },
+    { element: 'O', x: center[0] - offset[0], y: center[1] - offset[1], z: center[2] - offset[2] },
+  ];
+}
+
+// 4 个 Pa-3 分子位点对应的分子轴方向；8 个顶点是同一分子的平移等价位置
+const CO2_ORIENTATIONS = {
+  corner: [CO2_O_OFFSET, CO2_O_OFFSET, CO2_O_OFFSET],
+  faceZ: [CO2_O_OFFSET, -CO2_O_OFFSET, -CO2_O_OFFSET],
+  faceY: [CO2_O_OFFSET, CO2_O_OFFSET, -CO2_O_OFFSET],
+  faceX: [-CO2_O_OFFSET, CO2_O_OFFSET, -CO2_O_OFFSET],
+} as const satisfies Record<string, FractionalVec3>;
+
+const DRY_ICE_CORNERS: FractionalVec3[] = [
+  [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
+  [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1],
+];
+
+const DRY_ICE_FACE_Z: FractionalVec3[] = [[0.5, 0.5, 0], [0.5, 0.5, 1]];
+const DRY_ICE_FACE_Y: FractionalVec3[] = [[0.5, 0, 0.5], [0.5, 1, 0.5]];
+const DRY_ICE_FACE_X: FractionalVec3[] = [[0, 0.5, 0.5], [1, 0.5, 0.5]];
+
 export const dryIceCell: UnitCell = {
   id: 'dryice',
   name: 'Dry Ice',
@@ -96,81 +129,20 @@ export const dryIceCell: UnitCell = {
   beta: 90,
   gamma: 90,
   atoms: [
-    // ========== 4个格点位置，每个格点有1个CO₂分子 ==========
-    
-    // 格点1: (0,0,0)
-    { element: 'C', x: 0, y: 0, z: 0 },
-    { element: 'O', x: 0, y: 0, z: 0.115 },
-    { element: 'O', x: 0, y: 0, z: -0.115 },  // 允许负值以显示完整分子
-    
-    // 格点2: (0,0,1)
-    { element: 'C', x: 0, y: 0, z: 1 },
-    { element: 'O', x: 0, y: 0, z: 1.115 },   // 允许>1以显示完整分子
-    { element: 'O', x: 0, y: 0, z: 0.885 },
-    
-    // 格点3: (0,1,0)
-    { element: 'C', x: 0, y: 1, z: 0 },
-    { element: 'O', x: 0, y: 1, z: 0.115 },
-    { element: 'O', x: 0, y: 1, z: -0.115 },
-    
-    // 格点4: (0,1,1)
-    { element: 'C', x: 0, y: 1, z: 1 },
-    { element: 'O', x: 0, y: 1, z: 1.115 },
-    { element: 'O', x: 0, y: 1, z: 0.885 },
-    
-    // 格点5: (1,0,0)
-    { element: 'C', x: 1, y: 0, z: 0 },
-    { element: 'O', x: 1, y: 0, z: 0.115 },
-    { element: 'O', x: 1, y: 0, z: -0.115 },
-    
-    // 格点6: (1,0,1)
-    { element: 'C', x: 1, y: 0, z: 1 },
-    { element: 'O', x: 1, y: 0, z: 1.115 },
-    { element: 'O', x: 1, y: 0, z: 0.885 },
-    
-    // 格点7: (1,1,0)
-    { element: 'C', x: 1, y: 1, z: 0 },
-    { element: 'O', x: 1, y: 1, z: 0.115 },
-    { element: 'O', x: 1, y: 1, z: -0.115 },
-    
-    // 格点8: (1,1,1)
-    { element: 'C', x: 1, y: 1, z: 1 },
-    { element: 'O', x: 1, y: 1, z: 1.115 },
-    { element: 'O', x: 1, y: 1, z: 0.885 },
-    
-    // 面心位置
-    // 底面面心 (z=0)
-    { element: 'C', x: 0.5, y: 0.5, z: 0 },
-    { element: 'O', x: 0.5, y: 0.5, z: 0.115 },
-    { element: 'O', x: 0.5, y: 0.5, z: -0.115 },
-    
-    // 顶面面心 (z=1)
-    { element: 'C', x: 0.5, y: 0.5, z: 1 },
-    { element: 'O', x: 0.5, y: 0.5, z: 1.115 },
-    { element: 'O', x: 0.5, y: 0.5, z: 0.885 },
-    
-    // 前面面心
-    { element: 'C', x: 0.5, y: 0, z: 0.5 },
-    { element: 'O', x: 0.5, y: 0, z: 0.615 },
-    { element: 'O', x: 0.5, y: 0, z: 0.385 },
-    
-    // 后面面心
-    { element: 'C', x: 0.5, y: 1, z: 0.5 },
-    { element: 'O', x: 0.5, y: 1, z: 0.615 },
-    { element: 'O', x: 0.5, y: 1, z: 0.385 },
-    
-    // 左面面心
-    { element: 'C', x: 0, y: 0.5, z: 0.5 },
-    { element: 'O', x: 0, y: 0.5, z: 0.615 },
-    { element: 'O', x: 0, y: 0.5, z: 0.385 },
-    
-    // 右面面心
-    { element: 'C', x: 1, y: 0.5, z: 0.5 },
-    { element: 'O', x: 1, y: 0.5, z: 0.615 },
-    { element: 'O', x: 1, y: 0.5, z: 0.385 },
+    // 8 个顶点：同一 CO₂ 分子的平移等价位置，分子轴沿 [111]
+    ...DRY_ICE_CORNERS.flatMap(center => co2MoleculeAt(center, CO2_ORIENTATIONS.corner)),
+
+    // z=0 / z=1 面心：分子轴沿 [1-1-1]
+    ...DRY_ICE_FACE_Z.flatMap(center => co2MoleculeAt(center, CO2_ORIENTATIONS.faceZ)),
+
+    // y=0 / y=1 面心：分子轴沿 [11-1]
+    ...DRY_ICE_FACE_Y.flatMap(center => co2MoleculeAt(center, CO2_ORIENTATIONS.faceY)),
+
+    // x=0 / x=1 面心：分子轴沿 [-11-1]
+    ...DRY_ICE_FACE_X.flatMap(center => co2MoleculeAt(center, CO2_ORIENTATIONS.faceX)),
   ],
   properties: {
-    description: '分子晶体，CO₂分子位于面心立方格点。显示完整的8个顶点和6个面心位置的分子。满足晶胞平移对称性要求。',
+    description: '分子晶体，空间群 Pa-3（面心立方），每个晶胞含 4 个 CO₂ 分子。分子轴沿 4 条体对角线：8 个顶点为 [111]，三组面心分别为 [1-1-1]、[11-1]、[-11-1]。显示完整的 8 个顶点和 6 个面心分子。',
     category: 'molecular',
     coordination: '12 (分子间)'
   }
@@ -489,214 +461,519 @@ export const graphiteCell: UnitCell = {
   ],
   properties: {
     description: '层状结构，六方晶系。ABA三层堆叠，A层4顶点+1内部，AB错位。只显示层内最近邻C-C共价键。',
-    category: 'covalent',
+    category: 'mixed',
     coordination: '3 (平面三角形)'
   }
 };
 
-/**
- * 碳60 (C60) - 富勒烯/巴克球分子
- * 
- * 结构描述：
- * - 分子类型：截角二十面体 (Truncated Icosahedron)
- * - 60个碳原子，形成12个五边形和20个六边形
- * - 每个碳原子sp²杂化，与3个相邻碳原子成键
- * - C-C键长：约1.40 Å（六边形）和 1.45 Å（五边形）
- * - 分子直径：约7.1 Å
- * 
- * 坐标基于黄金分割比例 φ = (1+√5)/2
- * 所有原子位于半径约3.55 Å的球面上
- */
-function generateC60Atoms(): Atom[] {
-  const phi = (1 + Math.sqrt(5)) / 2;  // 黄金分割比例 ≈ 1.618
-  const atoms: Atom[] = [];
-  
-  // 截角二十面体顶点坐标 (归一化)
-  // 顶点类型1: (0, ±1, ±3φ)
-  // 顶点类型2: (±1, ±(2+φ), ±2φ)
-  // 顶点类型3: (±φ, ±2, ±(2φ+1))
-  // 顶点类型4: (±φ², ±1, ±(2φ+1))
-  // 顶点类型5: (±2φ, ±1, ±(φ+2))
-  
-  const coords: [number, number, number][] = [];
-  
-  // 类型1: (0, ±1, ±3φ)
-  const t1 = [0, 1, 3 * phi];
-  coords.push(
-    [t1[0], t1[1], t1[2]], [t1[0], -t1[1], t1[2]],
-    [t1[0], t1[1], -t1[2]], [t1[0], -t1[1], -t1[2]]
-  );
-  coords.push(
-    [t1[1], t1[2], t1[0]], [-t1[1], t1[2], t1[0]],
-    [t1[1], -t1[2], t1[0]], [-t1[1], -t1[2], t1[0]]
-  );
-  coords.push(
-    [t1[2], t1[0], t1[1]], [t1[2], t1[0], -t1[1]],
-    [-t1[2], t1[0], t1[1]], [-t1[2], t1[0], -t1[1]]
-  );
-  
-  // 类型2: (±1, ±(2+φ), ±2φ)
-  const t2 = [1, 2 + phi, 2 * phi];
-  for (const s1 of [1, -1]) {
-    for (const s2 of [1, -1]) {
-      for (const s3 of [1, -1]) {
-        coords.push([s1 * t2[0], s2 * t2[1], s3 * t2[2]]);
-      }
-    }
-  }
-  for (const s1 of [1, -1]) {
-    for (const s2 of [1, -1]) {
-      for (const s3 of [1, -1]) {
-        coords.push([s1 * t2[1], s2 * t2[2], s3 * t2[0]]);
-      }
-    }
-  }
-  for (const s1 of [1, -1]) {
-    for (const s2 of [1, -1]) {
-      for (const s3 of [1, -1]) {
-        coords.push([s1 * t2[2], s2 * t2[0], s3 * t2[1]]);
-      }
-    }
-  }
-  
-  // 类型3: (±φ, ±2, ±(2φ+1))
-  const t3 = [phi, 2, 2 * phi + 1];
-  for (const s1 of [1, -1]) {
-    for (const s2 of [1, -1]) {
-      for (const s3 of [1, -1]) {
-        coords.push([s1 * t3[0], s2 * t3[1], s3 * t3[2]]);
-      }
-    }
-  }
-  for (const s1 of [1, -1]) {
-    for (const s2 of [1, -1]) {
-      for (const s3 of [1, -1]) {
-        coords.push([s1 * t3[1], s2 * t3[2], s3 * t3[0]]);
-      }
-    }
-  }
-  for (const s1 of [1, -1]) {
-    for (const s2 of [1, -1]) {
-      for (const s3 of [1, -1]) {
-        coords.push([s1 * t3[2], s2 * t3[0], s3 * t3[1]]);
-      }
-    }
-  }
-  
-  // 去重（某些坐标可能重复）
-  const uniqueCoords: [number, number, number][] = [];
-  const seen = new Set<string>();
-  
-  for (const c of coords) {
-    const key = `${c[0].toFixed(6)},${c[1].toFixed(6)},${c[2].toFixed(6)}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueCoords.push(c);
-    }
-  }
-  
-  // 归一化到单位球面，然后缩放到分子半径
-  // C60分子半径约为3.55 Å
-  const radius = 3.55;
-  
-  for (const c of uniqueCoords) {
-    const len = Math.sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]);
-    const nx = c[0] / len;
-    const ny = c[1] / len;
-    const nz = c[2] / len;
-    
-    // 将坐标映射到 [0,1] 范围，中心在 (0.5, 0.5, 0.5)
-    // 以便与现有渲染系统兼容
-    atoms.push({
-      element: 'C',
-      x: (nx * radius + 4) / 8,  // 映射到约 [0, 1]
-      y: (ny * radius + 4) / 8,
-      z: (nz * radius + 4) / 8
-    });
-  }
-  
-  return atoms;
+// ==================== 教材补充晶胞 ====================
+
+/** 面心立方格点：8 个顶点 + 6 个面心 */
+const FCC_SITES: FractionalVec3[] = [
+  [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
+  [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1],
+  [0.5, 0.5, 0], [0.5, 0.5, 1],
+  [0.5, 0, 0.5], [0.5, 1, 0.5],
+  [0, 0.5, 0.5], [1, 0.5, 0.5],
+];
+
+function atomsAt(sites: FractionalVec3[], element: Atom['element']): Atom[] {
+  return sites.map(([x, y, z]) => ({ element, x, y, z }));
 }
 
 /**
- * 生成C60的化学键
- * 基于最近邻算法，键长阈值约1.45 Å
+ * 晶体硅 (Silicon) - 金刚石型结构
+ *
+ * 与金刚石相同的 8 顶点 + 6 面心 + 4 内部原子排布，
+ * 只是把 C 换成 Si，a = 5.431 Å。
  */
-function generateC60Bonds(atomCount: number, atoms: Array<{ x: number; y: number; z: number }>): Bond[] {
-  const bonds: Bond[] = [];
-  const radius = 3.55;
-  const threshold = 1.5 * 1.5;  // 键长平方阈值 (Å²)
-  
-  // 将原子坐标转换回实际坐标
-  const realCoords = atoms.map(a => ({
-    x: (a.x * 8 - 4),
-    y: (a.y * 8 - 4),
-    z: (a.z * 8 - 4)
-  }));
-  
-  for (let i = 0; i < atomCount; i++) {
-    for (let j = i + 1; j < atomCount; j++) {
-      const dx = realCoords[i].x - realCoords[j].x;
-      const dy = realCoords[i].y - realCoords[j].y;
-      const dz = realCoords[i].z - realCoords[j].z;
-      const distSq = dx * dx + dy * dy + dz * dz;
-      
-      if (distSq < threshold) {
-        bonds.push({ atom1: i, atom2: j, type: 'single' });
-      }
-    }
-  }
-  
-  return bonds;
-}
-
-// 生成C60原子和键
-const c60Atoms = generateC60Atoms();
-const c60Bonds = generateC60Bonds(c60Atoms.length, c60Atoms);
-
-export const c60Cell: UnitCell = {
-  id: 'c60',
-  name: 'C60 Fullerene',
-  nameZh: '碳60富勒烯',
-  latticeType: 'hexagonal',  // 使用hexagonal作为分子类型标识（实际上不适用）
-  a: 8.0,   // 包围盒大小
-  b: 8.0,
-  c: 8.0,
+export const siliconCell: UnitCell = {
+  id: 'silicon',
+  name: 'Silicon',
+  nameZh: '晶体硅',
+  latticeType: 'diamond',
+  a: 5.431,
+  b: 5.431,
+  c: 5.431,
   alpha: 90,
   beta: 90,
   gamma: 90,
-  atoms: c60Atoms,
-  bonds: c60Bonds,
+  atoms: diamondCell.atoms.map((atom): Atom => ({ ...atom, element: 'Si' })),
   properties: {
-    description: '富勒烯（巴克球），截角二十面体结构。60个碳原子形成12个五边形和20个六边形。每个碳原子与3个相邻碳原子成键，sp²杂化。1996年诺贝尔化学奖。',
-    category: 'molecular',
-    coordination: '3 (每个C与3个C成键)'
+    description: '共价晶体，金刚石型结构。每个 Si 原子与 4 个 Si 原子形成正四面体配位，Si–Si 键长约 2.35 Å。',
+    category: 'covalent',
+    coordination: '4 (四面体配位)'
   }
 };
 
-// 在 cells.ts 文件末尾、UNIT_CELLS 定义前，新增这行导出
-export { c70Cell } from './c70'; // 直接重导出 c70.ts 中的 c70Cell
+/**
+ * 二氧化硅 (SiO₂) - 理想立方 β-方石英近似
+ *
+ * Si 取金刚石的 18 个显示位置（8 顶点 + 6 面心 + 4 内部）；
+ * O 位于每个 Si–Si 最近邻键的中点，共 16 个，形成 Si–O–Si 桥。
+ * 理想模型 Si–O–Si 为 180°，实际 β-方石英约 147°。
+ */
+const SIO2_O_SITES: Array<{
+  si1: number;
+  si2: number;
+  x: number;
+  y: number;
+  z: number;
+}> = [
+  // 内部 Si 14 (1/4,1/4,1/4) 的 4 条键
+  { si1: 14, si2: 0, x: 1 / 8, y: 1 / 8, z: 1 / 8 },
+  { si1: 14, si2: 8, x: 3 / 8, y: 3 / 8, z: 1 / 8 },
+  { si1: 14, si2: 10, x: 3 / 8, y: 1 / 8, z: 3 / 8 },
+  { si1: 14, si2: 12, x: 1 / 8, y: 3 / 8, z: 3 / 8 },
+  // 内部 Si 15 (3/4,3/4,1/4) 的 4 条键
+  { si1: 15, si2: 3, x: 7 / 8, y: 7 / 8, z: 1 / 8 },
+  { si1: 15, si2: 8, x: 5 / 8, y: 5 / 8, z: 1 / 8 },
+  { si1: 15, si2: 11, x: 5 / 8, y: 7 / 8, z: 3 / 8 },
+  { si1: 15, si2: 13, x: 7 / 8, y: 5 / 8, z: 3 / 8 },
+  // 内部 Si 16 (3/4,1/4,3/4) 的 4 条键
+  { si1: 16, si2: 5, x: 7 / 8, y: 1 / 8, z: 7 / 8 },
+  { si1: 16, si2: 10, x: 5 / 8, y: 1 / 8, z: 5 / 8 },
+  { si1: 16, si2: 13, x: 7 / 8, y: 3 / 8, z: 5 / 8 },
+  { si1: 16, si2: 9, x: 5 / 8, y: 3 / 8, z: 7 / 8 },
+  // 内部 Si 17 (1/4,3/4,3/4) 的 4 条键
+  { si1: 17, si2: 6, x: 1 / 8, y: 7 / 8, z: 7 / 8 },
+  { si1: 17, si2: 12, x: 1 / 8, y: 5 / 8, z: 5 / 8 },
+  { si1: 17, si2: 11, x: 3 / 8, y: 7 / 8, z: 5 / 8 },
+  { si1: 17, si2: 9, x: 3 / 8, y: 5 / 8, z: 7 / 8 },
+];
 
-// 导出所有晶胞
-export const UNIT_CELLS: Record<string, UnitCell> = {
-  diamond: diamondCell,
-  dryice: dryIceCell,
-  sic: sicCell,
-  nacl: naclCell,
-  cscl: csclCell,
-  zns: znsCell,
-  caf2: caf2Cell,
-  graphite: graphiteCell,
-  c60: c60Cell,
-  c70: c70Cell // 新增c70Cell暴露
+export const sio2Cell: UnitCell = {
+  id: 'sio2',
+  name: 'Silicon Dioxide',
+  nameZh: '二氧化硅',
+  latticeType: 'cristobalite',
+  a: 7.16,
+  b: 7.16,
+  c: 7.16,
+  alpha: 90,
+  beta: 90,
+  gamma: 90,
+  atoms: [
+    ...diamondCell.atoms.map((atom): Atom => ({ ...atom, element: 'Si' })),
+    ...SIO2_O_SITES.map(({ x, y, z }): Atom => ({ element: 'O', x, y, z })),
+  ],
+  bonds: SIO2_O_SITES.flatMap((site, index): Bond[] => [
+    { atom1: site.si1, atom2: diamondCell.atoms.length + index, type: 'single' },
+    { atom1: site.si2, atom2: diamondCell.atoms.length + index, type: 'single' },
+  ]),
+  properties: {
+    description: '共价晶体，理想立方 β-方石英近似（Fd-3m，a≈7.16 Å）。每个 Si 与 4 个 O 形成 SiO₄ 四面体，O 桥接两个 Si。',
+    category: 'covalent',
+    coordination: '4 (Si), 2 (O)'
+  }
 };
 
-// 获取晶胞数据
-export function getUnitCell(id: string): UnitCell | undefined {
-  return UNIT_CELLS[id];
+/**
+ * 碘 (I₂) - 教材示意结构
+ *
+ * 长方体晶胞 a=7.30、b=4.80、c=9.80 Å，I₂ 分子位于 8 个顶点和 6 个面心。
+ * 分子轴有两种取向（±32° 倾斜），分子内 I–I 约 2.67 Å。
+ * 这是教材化的示意模型，真实晶体为正交 Cmca 结构。
+ */
+const I2_OFFSET_A: FractionalVec3 = [0, 0.147, 0.116];
+const I2_OFFSET_B: FractionalVec3 = [0, -0.147, 0.116];
+
+function i2MoleculeAt(center: FractionalVec3, offset: FractionalVec3): Atom[] {
+  return [
+    { element: 'I', x: center[0] + offset[0], y: center[1] + offset[1], z: center[2] + offset[2] },
+    { element: 'I', x: center[0] - offset[0], y: center[1] - offset[1], z: center[2] - offset[2] },
+  ];
 }
 
-// 获取所有晶胞列表
-export function getAllUnitCells(): UnitCell[] {
-  return Object.values(UNIT_CELLS);
+const IODINE_MOLECULES: Array<{ center: FractionalVec3; offset: FractionalVec3 }> = [
+  ...DRY_ICE_CORNERS.map(center => ({ center, offset: I2_OFFSET_A })),
+  { center: [0.5, 0.5, 0], offset: I2_OFFSET_A },
+  { center: [0.5, 0.5, 1], offset: I2_OFFSET_A },
+  { center: [0.5, 0, 0.5], offset: I2_OFFSET_B },
+  { center: [0.5, 1, 0.5], offset: I2_OFFSET_B },
+  { center: [0, 0.5, 0.5], offset: I2_OFFSET_B },
+  { center: [1, 0.5, 0.5], offset: I2_OFFSET_B },
+];
+
+export const iodineCell: UnitCell = {
+  id: 'iodine',
+  name: 'Iodine',
+  nameZh: '碘',
+  latticeType: 'orthorhombic',
+  a: 7.30,
+  b: 4.80,
+  c: 9.80,
+  alpha: 90,
+  beta: 90,
+  gamma: 90,
+  atoms: IODINE_MOLECULES.flatMap(({ center, offset }) => i2MoleculeAt(center, offset)),
+  bonds: IODINE_MOLECULES.flatMap((_, index): Bond[] => [
+    { atom1: index * 2, atom2: index * 2 + 1, type: 'single' },
+  ]),
+  properties: {
+    description: '分子晶体，教材示意结构：I₂ 分子位于 8 个顶点和 6 个面心，分子轴有两种取向。分子内 I–I 键长约 2.67 Å，分子间靠范德华力结合；实际晶体为正交 Cmca 结构。',
+    category: 'molecular',
+    coordination: '12 (分子间)'
+  }
+};
+
+/**
+ * 冰 (Ice Ih) - 六方冰结构
+ *
+ * 采用正交化显示晶胞 a=b=7.82 Å、c=7.36 Å（原始六方晶胞 a₀≈4.52 Å），
+ * 空间群 P6₃cm 的有序质子模型。O/H 坐标由对称操作展开；
+ * 每个 H 与最近的 O 成共价 O–H 键，与次近的 O 形成氢键。
+ * 为显示完整水分子，会补充少量晶胞边界外的 O/H 映像。
+ */
+const ICE_A = 7.82;
+const ICE_C = 7.36;
+const ICE_GAMMA = 120;
+
+type IceSite = { element: 'O' | 'H'; x: number; y: number; z: number };
+
+const ICE_SYMMETRY_OPS: Array<(x: number, y: number, z: number) => [number, number, number]> = [
+  (x, y, z) => [x, y, z],
+  (x, y, z) => [-y, x - y, z],
+  (x, y, z) => [y - x, -x, z],
+  (x, y, z) => [y, x, z],
+  (x, y, z) => [x - y, -y, z],
+  (x, y, z) => [-x, y - x, z],
+  (x, y, z) => [-x, -y, z + 0.5],
+  (x, y, z) => [y, y - x, z + 0.5],
+  (x, y, z) => [x - y, x, z + 0.5],
+  (x, y, z) => [-y, -x, z + 0.5],
+  (x, y, z) => [y - x, y, z + 0.5],
+  (x, y, z) => [x, x - y, z + 0.5],
+];
+
+const ICE_BASE_SITES: IceSite[] = [
+  { element: 'O', x: 1 / 3, y: 0, z: 0.0625 },
+  { element: 'O', x: 2 / 3, y: 0, z: 0.9375 },
+  { element: 'H', x: 1 / 3, y: 0, z: 0.174 },
+  { element: 'H', x: 0.438, y: 0, z: 0.026 },
+  { element: 'H', x: 0.772, y: 0.105, z: 0.975 },
+];
+
+const ICE_GAMMA_RAD = (ICE_GAMMA * Math.PI) / 180;
+const ICE_A2_X = ICE_A * Math.cos(ICE_GAMMA_RAD);
+const ICE_A2_Y = ICE_A * Math.sin(ICE_GAMMA_RAD);
+
+function iceCartesian(site: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  return {
+    x: site.x * ICE_A + site.y * ICE_A2_X,
+    y: site.y * ICE_A2_Y,
+    z: site.z * ICE_C,
+  };
 }
+
+function nearestIceImage(
+  from: { x: number; y: number; z: number },
+  to: { x: number; y: number; z: number }
+): { distance: number; offset: [number, number, number] } {
+  const origin = iceCartesian(from);
+  let bestDistance = Infinity;
+  let bestOffset: [number, number, number] = [0, 0, 0];
+
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const target = iceCartesian({ x: to.x + dx, y: to.y + dy, z: to.z + dz });
+        const distance = Math.hypot(origin.x - target.x, origin.y - target.y, origin.z - target.z);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestOffset = [dx, dy, dz];
+        }
+      }
+    }
+  }
+
+  return { distance: bestDistance, offset: bestOffset };
+}
+
+function normalizeFractional(value: number): number {
+  const wrapped = value % 1;
+  return wrapped < 0 ? wrapped + 1 : wrapped;
+}
+
+function iceSiteKey(site: IceSite): string {
+  return `${site.element}:${site.x.toFixed(4)},${site.y.toFixed(4)},${site.z.toFixed(4)}`;
+}
+
+function expandIceSites(): IceSite[] {
+  const sites: IceSite[] = [];
+  const seen = new Set<string>();
+
+  for (const base of ICE_BASE_SITES) {
+    for (const op of ICE_SYMMETRY_OPS) {
+      const [x, y, z] = op(base.x, base.y, base.z);
+      const site: IceSite = {
+        element: base.element,
+        x: normalizeFractional(x),
+        y: normalizeFractional(y),
+        z: normalizeFractional(z),
+      };
+      const key = iceSiteKey(site);
+      if (!seen.has(key)) {
+        seen.add(key);
+        sites.push(site);
+      }
+    }
+  }
+
+  return sites;
+}
+
+function buildIceStructure(): { atoms: Atom[]; bonds: Bond[] } {
+  const baseSites = expandIceSites();
+  const baseO = baseSites.filter(site => site.element === 'O');
+  const baseH = baseSites.filter(site => site.element === 'H');
+
+  const atoms: IceSite[] = [];
+  const atomIndex = new Map<string, number>();
+
+  const addAtom = (element: 'O' | 'H', x: number, y: number, z: number): number => {
+    const site: IceSite = { element, x, y, z };
+    const key = iceSiteKey(site);
+    const existing = atomIndex.get(key);
+    if (existing !== undefined) return existing;
+
+    const index = atoms.length;
+    atoms.push(site);
+    atomIndex.set(key, index);
+    return index;
+  };
+
+  const bonds: Bond[] = [];
+  const bondKeys = new Set<string>();
+  const addBond = (atom1: number, atom2: number, type: 'single' | 'hydrogen'): void => {
+    const first = Math.min(atom1, atom2);
+    const second = Math.max(atom1, atom2);
+    const key = `${first}-${second}-${type}`;
+    if (bondKeys.has(key)) return;
+
+    bondKeys.add(key);
+    bonds.push({ atom1: first, atom2: second, type });
+  };
+
+  // 1. 以每个 O 为核心，取最近的 2 个 H 映像组成刚性水分子
+  //    （H 的分数坐标可能被平移到晶胞外，保证 O–H 距离不被周期性边界拉长）
+  const moleculeHydrogens = new Map<
+    IceSite,
+    Array<{ hydrogen: IceSite; offset: [number, number, number] }>
+  >();
+
+  for (const oxygen of baseO) {
+    const candidates = baseH
+      .map(hydrogen => ({ hydrogen, ...nearestIceImage(oxygen, hydrogen) }))
+      .sort((a, b) => a.distance - b.distance);
+
+    const selected: Array<{ hydrogen: IceSite; offset: [number, number, number] }> = [];
+    const used = new Set<string>();
+    for (const candidate of candidates) {
+      const key = iceSiteKey(candidate.hydrogen);
+      if (used.has(key)) continue;
+      used.add(key);
+      selected.push({ hydrogen: candidate.hydrogen, offset: candidate.offset });
+      if (selected.length === 2) break;
+    }
+    moleculeHydrogens.set(oxygen, selected);
+  }
+
+  const moleculeIndex = new Map<string, number>();
+  const addMolecule = (
+    oxygen: IceSite,
+    offset: [number, number, number]
+  ): number => {
+    const oxygenSite: IceSite = {
+      element: 'O',
+      x: oxygen.x + offset[0],
+      y: oxygen.y + offset[1],
+      z: oxygen.z + offset[2],
+    };
+    const moleculeKey = iceSiteKey(oxygenSite);
+    const existing = moleculeIndex.get(moleculeKey);
+    if (existing !== undefined) return existing;
+
+    const oxygenIndex = addAtom('O', oxygenSite.x, oxygenSite.y, oxygenSite.z);
+    moleculeIndex.set(moleculeKey, oxygenIndex);
+
+    for (const { hydrogen, offset: hydrogenOffset } of moleculeHydrogens.get(oxygen) ?? []) {
+      const hydrogenIndex = addAtom(
+        'H',
+        hydrogen.x + hydrogenOffset[0] + offset[0],
+        hydrogen.y + hydrogenOffset[1] + offset[1],
+        hydrogen.z + hydrogenOffset[2] + offset[2]
+      );
+      addBond(oxygenIndex, hydrogenIndex, 'single');
+    }
+
+    return oxygenIndex;
+  };
+
+  // 2. 晶胞内的 12 个完整水分子
+  for (const oxygen of baseO) {
+    addMolecule(oxygen, [0, 0, 0]);
+  }
+
+  // 3. 每个 O–H 的 H 与最近的另一个 O 形成氢键；受体在胞外时补完整水分子映像
+  for (const oxygen of baseO) {
+    for (const { hydrogen, offset } of moleculeHydrogens.get(oxygen) ?? []) {
+      const hydrogenSite: IceSite = {
+        element: 'H',
+        x: hydrogen.x + offset[0],
+        y: hydrogen.y + offset[1],
+        z: hydrogen.z + offset[2],
+      };
+      const hydrogenIndex = atomIndex.get(iceSiteKey(hydrogenSite))!;
+
+      let bestDistance = Infinity;
+      let bestO = baseO[0];
+      let bestOffset: [number, number, number] = [0, 0, 0];
+
+      for (const acceptor of baseO) {
+        const nearest = nearestIceImage(hydrogenSite, acceptor);
+        if (nearest.distance < 1.2) continue; // 跳过共价母 O
+        if (nearest.distance < bestDistance) {
+          bestDistance = nearest.distance;
+          bestO = acceptor;
+          bestOffset = nearest.offset;
+        }
+      }
+
+      const acceptorIndex = addMolecule(bestO, bestOffset);
+      addBond(hydrogenIndex, acceptorIndex, 'hydrogen');
+    }
+  }
+
+  return {
+    atoms: atoms.map(({ element, x, y, z }): Atom => ({ element, x, y, z })),
+    bonds,
+  };
+}
+
+const ICE_STRUCTURE = buildIceStructure();
+
+export const iceCell: UnitCell = {
+  id: 'ice',
+  name: 'Ice',
+  nameZh: '冰',
+  latticeType: 'hexagonal',
+  a: ICE_A,
+  b: ICE_A,
+  c: ICE_C,
+  alpha: 90,
+  beta: 90,
+  gamma: ICE_GAMMA,
+  atoms: ICE_STRUCTURE.atoms,
+  bonds: ICE_STRUCTURE.bonds,
+  properties: {
+    description: '分子晶体，六方 Ih 结构（为便于观察采用正交化显示晶胞 a=b=7.82 Å、c=7.36 Å，原始六方晶胞 a₀≈4.52 Å）。每个水分子与周围 4 个水分子形成氢键，细线表示氢键。',
+    category: 'molecular',
+    coordination: '4 (氢键)'
+  }
+};
+
+/** 铜 (Cu) - 面心立方最密堆积 */
+export const copperCell: UnitCell = {
+  id: 'copper',
+  name: 'Copper',
+  nameZh: '铜',
+  latticeType: 'fcc',
+  a: 3.615,
+  b: 3.615,
+  c: 3.615,
+  alpha: 90,
+  beta: 90,
+  gamma: 90,
+  atoms: atomsAt(FCC_SITES, 'Cu'),
+  properties: {
+    description: '金属晶体，面心立方最密堆积（fcc）。每个 Cu 原子配位数为 12，常规晶胞含 4 个 Cu 原子。',
+    category: 'metallic',
+    coordination: '12 (面心立方)'
+  }
+};
+
+/** 镁 (Mg) - 六方最密堆积 */
+export const magnesiumCell: UnitCell = {
+  id: 'magnesium',
+  name: 'Magnesium',
+  nameZh: '镁',
+  latticeType: 'hcp',
+  a: 3.209,
+  b: 3.209,
+  c: 5.211,
+  alpha: 90,
+  beta: 90,
+  gamma: 120,
+  atoms: [
+    ...atomsAt(DRY_ICE_CORNERS, 'Mg'),
+    { element: 'Mg', x: 1 / 3, y: 2 / 3, z: 0.5 },
+  ],
+  properties: {
+    description: '金属晶体，六方最密堆积（hcp）。每个 Mg 原子配位数为 12，常规六方晶胞含 2 个 Mg 原子。',
+    category: 'metallic',
+    coordination: '12 (六方最密堆积)'
+  }
+};
+
+/** α-铁 (Fe) - 体心立方堆积 */
+export const ironCell: UnitCell = {
+  id: 'iron',
+  name: 'Iron',
+  nameZh: '铁',
+  latticeType: 'bcc',
+  a: 2.866,
+  b: 2.866,
+  c: 2.866,
+  alpha: 90,
+  beta: 90,
+  gamma: 90,
+  atoms: [
+    ...atomsAt(DRY_ICE_CORNERS, 'Fe'),
+    { element: 'Fe', x: 0.5, y: 0.5, z: 0.5 },
+  ],
+  properties: {
+    description: '金属晶体，体心立方堆积（bcc，α-Fe）。每个 Fe 原子配位数为 8，常规晶胞含 2 个 Fe 原子。',
+    category: 'metallic',
+    coordination: '8 (体心立方)'
+  }
+};
+
+/**
+ * 钙钛矿 (CaTiO₃) - 理想立方结构
+ *
+ * Ca²⁺ 位于 8 个顶点，Ti⁴⁺ 位于体心，O²⁻ 位于 6 个面心。
+ * 只绘制 Ti–O 八面体键；Ca 的 12 配位在描述中说明。
+ */
+export const perovskiteCell: UnitCell = {
+  id: 'perovskite',
+  name: 'Perovskite',
+  nameZh: '钙钛矿',
+  latticeType: 'perovskite',
+  a: 3.82,
+  b: 3.82,
+  c: 3.82,
+  alpha: 90,
+  beta: 90,
+  gamma: 90,
+  atoms: [
+    ...atomsAt(DRY_ICE_CORNERS, 'Ca'),
+    { element: 'Ti', x: 0.5, y: 0.5, z: 0.5 },
+    { element: 'O', x: 0.5, y: 0.5, z: 0 },
+    { element: 'O', x: 0.5, y: 0.5, z: 1 },
+    { element: 'O', x: 0.5, y: 0, z: 0.5 },
+    { element: 'O', x: 0.5, y: 1, z: 0.5 },
+    { element: 'O', x: 0, y: 0.5, z: 0.5 },
+    { element: 'O', x: 1, y: 0.5, z: 0.5 },
+  ],
+  bonds: [9, 10, 11, 12, 13, 14].map(oxygenIndex => ({
+    atom1: 8,
+    atom2: oxygenIndex,
+    type: 'single' as const,
+  })),
+  properties: {
+    description: '离子晶体，CaTiO₃ 的理想立方钙钛矿结构（Pm-3m，a≈3.82 Å）。Ca²⁺位于顶点，Ti⁴⁺位于体心，O²⁻位于面心；Ti 为 6 配位，Ca 为 12 配位。室温下实际存在正交畸变。',
+    category: 'ionic',
+    coordination: '6 (Ti), 12 (Ca)'
+  }
+};

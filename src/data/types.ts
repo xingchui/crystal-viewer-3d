@@ -9,19 +9,23 @@
 export type ElementSymbol = 
   | 'H' | 'He' | 'Li' | 'Be' | 'B' | 'C' | 'N' | 'O' | 'F' | 'Ne'
   | 'Na' | 'Mg' | 'Al' | 'Si' | 'P' | 'S' | 'Cl' | 'Ar'
-  | 'K' | 'Ca' | 'Fe' | 'Cu' | 'Zn' | 'Ag' | 'Au'
-  | 'Cs';
+  | 'K' | 'Ca' | 'Ti' | 'Fe' | 'Cu' | 'Zn' | 'Ag' | 'Au'
+  | 'I' | 'Cs';
 
-/** 键类型 */
-export type BondType = 'single' | 'double' | 'triple';
+/** 键类型（hydrogen 表示氢键，渲染为细实线） */
+export type BondType = 'single' | 'double' | 'triple' | 'hydrogen';
 
 /** 晶格类型 */
 export type LatticeType = 
   | 'cubic' | 'fcc' | 'bcc' | 'diamond' | 'zincblende' 
-  | 'rocksalt' | 'cesiumchloride' | 'fluorite' | 'hexagonal';
+  | 'rocksalt' | 'cesiumchloride' | 'fluorite' | 'hexagonal'
+  | 'hcp' | 'orthorhombic' | 'cristobalite' | 'perovskite';
 
-/** 晶体类别 */
-export type CrystalCategory = 'covalent' | 'molecular' | 'ionic' | 'metallic';
+/** 晶体类别（mixed 表示混合型晶体，如石墨） */
+export type CrystalCategory = 'covalent' | 'molecular' | 'ionic' | 'metallic' | 'mixed';
+
+/** 相机视角：立体视图或沿指定方向的投影 */
+export type ViewDirection = '3d' | 'yz' | 'xz' | 'xy' | 'body' | 'face';
 
 // ==================== 实体类型 ====================
 
